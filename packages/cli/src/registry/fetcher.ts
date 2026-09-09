@@ -1,0 +1,207 @@
+import type { FetchError } from "ofetch"
+import { promises as fs } from "node:fs"
+import { homedir } from "node:os"
+import { ofetch } from "ofetch"
+import path from "pathe"
+import { z } from "zod"
+import { resolveRegistryUrl } from "@/src/registry/builder"
+import { FALLBACK_STYLE, REGISTRY_URL } from "@/src/registry/constants"
+import { getRegistryHeadersFromContext } from "@/src/registry/context"
+import {
+  RegistryFetchError,
+  RegistryForbiddenError,
+  RegistryLocalFileError,
+  RegistryNotFoundError,
+  RegistryParseError,
+  RegistryStyleNotFoundError,
+  RegistryUnauthorizedError,
+} from "@/src/registry/errors"
+import { agent } from "@/src/registry/proxy"
+import { registryItemSchema } from "@/src/schema"
+
+const registryCache = new Map<string, Promise<any>>()
+
+// Tailwind v4-only items are absent from the legacy `new-york` registry.
+const LEGACY_STYLE_SEGMENT = /\/styles\/new-york\/(?=[^/]+\.json$)/
+
+async function resolveStyleFallbackUrl(url: string) {
+  // Only the shadcn-vue registry publishes the new-york/new-york-v4 pair, so
+  // never probe a third-party registry that happens to share the path shape.
+  if (!url.startsWith(REGISTRY_URL) || !LEGACY_STYLE_SEGMENT.test(url)) {
+    return null
+  }
+
+  const fallbackUrl = url.replace(
+    LEGACY_STYLE_SEGMENT,
+    `/styles/${FALLBACK_STYLE}/`,
+  )
+
+  try {
+    await ofetch(fallbackUrl, {
+      method: "HEAD",
+      retry: 0,
+      agent,
+      dispatcher: agent,
+      // Headers are keyed by the requested item url, so reuse the ones that
+      // were resolved for `url` - `fallbackUrl` is never registered.
+      headers: getRegistryHeadersFromContext(url),
+    })
+    return fallbackUrl
+  }
+  catch {
+    return null
+  }
+}
+
+export function clearRegistryCache() {
+  registryCache.clear()
+}
+
+export async function fetchRegistry(
+  paths: string[],
+  options: { useCache?: boolean } = {},
+) {
+  options = {
+    useCache: true,
+    ...options,
+  }
+
+  // eslint-disable-next-line no-useless-catch
+  try {
+    const results = await Promise.all(
+      paths.map(async (path) => {
+        const url = resolveRegistryUrl(path)
+
+        // Check cache first if caching is enabled
+        if (options.useCache && registryCache.has(url)) {
+          return registryCache.get(url)
+        }
+
+        // Store the promise in the cache before awaiting if caching is enabled.
+        const fetchPromise = (async () => {
+          // Get headers from context for this URL.
+          const headers = getRegistryHeadersFromContext(url)
+
+          const response = await ofetch.raw(url, {
+            agent,
+            dispatcher: agent,
+            parseResponse: JSON.parse,
+            headers: {
+              ...headers,
+            },
+          }).catch(async (error: FetchError) => {
+            if (!error.response) {
+              throw new RegistryFetchError(url, undefined, error.message)
+            }
+            const response = error.response
+
+            let messageFromServer
+
+            if (
+              response.headers.get("content-type")?.includes("application/json")
+            ) {
+              const json = await response._data
+              const parsed = z
+                .object({
+                  // RFC 7807.
+                  detail: z.string().optional(),
+                  title: z.string().optional(),
+                  // Standard error response.
+                  message: z.string().optional(),
+                  error: z.string().optional(),
+                })
+                .safeParse(json)
+
+              if (parsed.success) {
+                // Prefer RFC 7807 detail field, then message field.
+                messageFromServer = parsed.data.detail || parsed.data.message
+
+                if (parsed.data.error) {
+                  messageFromServer = `[${parsed.data.error}] ${messageFromServer}`
+                }
+              }
+            }
+
+            if (response.status === 401) {
+              throw new RegistryUnauthorizedError(url, messageFromServer)
+            }
+
+            if (response.status === 404) {
+              const fallbackUrl = await resolveStyleFallbackUrl(url)
+
+              if (fallbackUrl) {
+                throw new RegistryStyleNotFoundError(
+                  url,
+                  fallbackUrl,
+                  FALLBACK_STYLE,
+                  messageFromServer,
+                )
+              }
+
+              throw new RegistryNotFoundError(url, messageFromServer)
+            }
+
+            if (response.status === 403) {
+              throw new RegistryForbiddenError(url, messageFromServer)
+            }
+
+            throw new RegistryFetchError(
+              url,
+              response.status,
+              messageFromServer,
+            )
+          })
+
+          return response._data
+        })()
+
+        if (options.useCache) {
+          registryCache.set(url, fetchPromise)
+        }
+        return fetchPromise
+      }),
+    )
+
+    return results
+  }
+  catch (error) {
+    throw error
+  }
+}
+
+export async function fetchRegistryLocal(filePath: string) {
+  try {
+    // Handle tilde expansion for home directory
+    let expandedPath = filePath
+    if (filePath.startsWith("~/")) {
+      expandedPath = path.join(homedir(), filePath.slice(2))
+    }
+
+    const resolvedPath = path.resolve(expandedPath)
+    const content = await fs.readFile(resolvedPath, "utf8")
+    const parsed = JSON.parse(content)
+
+    try {
+      return registryItemSchema.parse(parsed)
+    }
+    catch (error) {
+      throw new RegistryParseError(filePath, error)
+    }
+  }
+  catch (error) {
+    // Check if this is a file not found error
+    if (
+      error instanceof Error
+      && (error.message.includes("ENOENT")
+        || error.message.includes("no such file"))
+    ) {
+      throw new RegistryLocalFileError(filePath, error)
+    }
+    // Re-throw parse errors as-is
+    if (error instanceof RegistryParseError) {
+      throw error
+    }
+    // For other errors (like JSON parse errors), throw as local file error
+    throw new RegistryLocalFileError(filePath, error)
+  }
+}
