@@ -8,7 +8,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/registry/new-york-v4/ui/popover'
-import { showMcpDocs } from '~/lib/flag'
 
 const props = defineProps<{
   class?: HTMLAttributes['class']
@@ -19,26 +18,30 @@ const router = useRouter()
 const open = ref(false)
 
 const TOP_LEVEL_SECTIONS = [
-  { name: 'Get Started', href: '/docs/introduction' },
+  { name: 'Start', href: '/docs/start' },
   {
-    name: 'Components',
-    href: '/docs/components',
+    name: 'Realtime',
+    href: '/docs/realtime',
   },
   {
-    name: 'Registry',
-    href: '/docs/registry',
+    name: 'Recorded',
+    href: '/docs/recorded',
   },
   {
-    name: 'MCP Server',
-    href: '/docs/mcp',
+    name: 'Concepts',
+    href: '/docs/concepts',
   },
   {
-    name: 'Forms',
-    href: '/docs/forms',
+    name: 'Guides',
+    href: '/docs/guides',
   },
   {
-    name: 'Changelog',
-    href: '/docs/changelog',
+    name: 'Reference',
+    href: '/docs/api-reference',
+  },
+  {
+    name: 'Production',
+    href: '/docs/production',
   },
 ]
 
@@ -109,7 +112,7 @@ function handleNavigate(path: string) {
           <div class="flex flex-col gap-3">
             <NuxtLink
               v-for="{ name, href } in TOP_LEVEL_SECTIONS"
-              v-show="!(!showMcpDocs && href.includes('/mcp'))"
+              
               :key="name"
               :to="href"
               class="text-2xl font-medium"

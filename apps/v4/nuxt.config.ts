@@ -10,6 +10,14 @@ export default defineNuxtConfig({
   },
   css: ['~/assets/css/main.css', 'vue-sonner/style.css'],
   modules: ['@nuxtjs/color-mode', '@nuxt/content', 'nuxt-shiki', 'nuxt-og-image', '@nuxt/image', '@nuxt/fonts'],
+  // classSuffix must be empty so <html> gets `dark`/`light` classes —
+  // the default `-mode` suffix (`dark-mode`) never matches the `.dark`
+  // CSS variables and Tailwind `dark:` variant.
+  colorMode: {
+    classSuffix: '',
+    preference: 'system',
+    fallback: 'light',
+  },
   components: [
     { path: '~/components', ignore: ['_internal/*', '_internal/**/*', 'examples/*', 'examples/**/*'] },
     { path: '~/components/demo', pathPrefix: false },
@@ -57,7 +65,34 @@ export default defineNuxtConfig({
   vite: {
     server: {
       allowedHosts: ['.trycloudflare.com', '.deth.us'],
+      // Prevent dev module caching across dev-server restarts: Nuxt marks
+      // /_nuxt/** immutable, so a restart changes ?v= hashes while browsers
+      // keep serving stale modules -> silent hydration failure.
+      headers: { 'Cache-Control': 'no-cache, must-revalidate' },
     },
+    plugins: [
+      tailwindcss() as any,
+      {
+        // Chrome's module loader percent-encodes `+` in import specifiers
+        // (`@nuxt+kit` -> `@nuxt%2Bkit`), but Vite's module graph registers
+        // the raw `+` path — the lookup misses, the request falls through to
+        // the SSR renderer and returns HTML, and the module fails with
+        // "Failed to fetch dynamically imported module" -> hydration dies.
+        // Decode %2B back to + before Vite's transform middleware runs.
+        name: 'decode-plus-in-module-paths',
+        configureServer(server) {
+          server.middlewares.use((req, _res, next) => {
+            if (req.url?.includes('%2B')) {
+              req.url = req.url.replaceAll('%2B', '+')
+            }
+            if (req.url?.endsWith('.css') || req.url?.includes('.css?')) {
+              console.log('[css-req]', req.url.slice(-50), '| accept:', req.headers.accept, '| dest:', req.headers['sec-fetch-dest'])
+            }
+            next()
+          })
+        },
+      },
+    ] as any,
     optimizeDeps: {
       include: [
         '@lucide/vue',
@@ -68,7 +103,6 @@ export default defineNuxtConfig({
         'tailwind-merge',
       ],
     },
-    plugins: [tailwindcss() as any],
     ssr: {
       noExternal: [
         '@tabler/icons-vue',
@@ -84,15 +118,11 @@ export default defineNuxtConfig({
     transpile: ['vee-validate', 'vue-sonner'],
   },
   routeRules: {
-    // Static assets - immutable, long cache
-    '/_nuxt/**': { headers: { 'cache-control': 'public, max-age=31536000, immutable' } },
+    // NOTE: no immutable cache header for /_nuxt/** here — in dev it would
+    // cache-bust Vite modules across server restarts and break hydration.
+    // Production asset caching is handled at the CF layer (hashed filenames).
     // Pages - prerender as static (reset on each deploy)
     '/docs/**': { prerender: true },
-    '/blocks/**': { prerender: true },
-    '/charts/**': { prerender: true },
-    '/examples/**': { prerender: true },
-    '/colors/**': { prerender: true },
-    '/themes': { prerender: true },
     // JSON API - edge-cached at CF, survives across Worker invocations
     '/api/**': {
       headers: {
@@ -119,7 +149,7 @@ export default defineNuxtConfig({
       deployConfig: true,
       nodeCompat: true,
       wrangler: {
-        name: 'shadcn-vue-nuxt',
+        name: 'lanson-docs-center',
         d1_databases: [
           {
             binding: 'DB',
@@ -150,7 +180,7 @@ export default defineNuxtConfig({
         // still hits Bunny at runtime — hence the preconnect.
         { rel: 'preconnect', href: 'https://fonts.bunny.net', crossorigin: '' },
       ],
-      meta: [{ name: 'keywords', content: 'Nuxt,Vue,Tailwind CSS,Components,shadcn' }],
+      meta: [{ name: 'keywords', content: 'LansonAI,Docs,Speech API,Realtime Transcription,Voice Context Layer' }],
     },
   },
   fonts: {

@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import type { Color, ColorPalette } from '@/lib/colors'
+
 import type { NavigationItem } from '~/composables/useNavigation'
-import { CornerDownLeft, Square } from '@lucide/vue'
+import { CornerDownLeft } from '@lucide/vue'
 import { IconArrowRight } from '@tabler/icons-vue'
-import { useClipboard } from '@vueuse/core'
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useIsMac } from '@/composables/useIsMac'
 import { useConfig } from '@/composables/useUserConfig'
@@ -35,60 +34,25 @@ interface Props {
     path: string
     stem?: string
   }
-  colors: ColorPalette[]
-  blocks?: { name: string, description: string, categories: string[] }[]
   navItems?: { href: string, label: string }[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  blocks: undefined,
   navItems: undefined,
 })
 
 const router = useRouter()
-const isMac = useIsMac()
-const config = useConfig()
 const open = ref(false)
-const selectedType = ref<'color' | 'page' | 'component' | 'block' | null>(null)
-const copyPayload = ref('')
+const selectedType = ref<'page' | null>(null)
 
-const pmToDlxCommand: Record<string, string> = {
-  npm: 'npx',
-  yarn: 'yarn dlx',
-  pnpm: 'pnpm dlx',
-  bun: 'bunx',
-}
-
-const packageManager = config.config.value.packageManager || 'pnpm'
-
-function handlePageHighlight(isComponent: boolean, item: { path: string, title?: string }) {
-  if (isComponent) {
-    const componentName = item.path.split('/').pop()
-    selectedType.value = 'component'
-    copyPayload.value = `${pmToDlxCommand[packageManager]} shadcn-vue@latest add ${componentName}`
-  }
-  else {
-    selectedType.value = 'page'
-    copyPayload.value = ''
-  }
-}
-
-function handleColorHighlight(color: Color) {
-  selectedType.value = 'color'
-  copyPayload.value = color.className
-}
-
-function handleBlockHighlight(block: { name: string, description: string, categories: string[] }) {
-  selectedType.value = 'block'
-  copyPayload.value = `${pmToDlxCommand[packageManager]} shadcn-vue@latest add ${block.name}`
+function handlePageHighlight() {
+  selectedType.value = 'page'
 }
 
 function runCommand(command: () => unknown) {
   open.value = false
   command()
 }
-
-const { copy } = useClipboard({ source: copyPayload })
 
 onMounted(() => {
   const down = (e: KeyboardEvent) => {
@@ -103,9 +67,6 @@ onMounted(() => {
       }
       e.preventDefault()
       open.value = !open.value
-    }
-    if (e.key === 'c' && (e.metaKey || e.ctrlKey) && open.value && copyPayload.value) {
-      runCommand(copy)
     }
   }
   document.addEventListener('keydown', down)
@@ -161,10 +122,7 @@ onMounted(() => {
               :key="item.href"
               :value="`Navigation ${item.label}`"
               @select="() => runCommand(() => router.push(item.href))"
-              @highlight="() => {
-                selectedType = 'page'
-                copyPayload = ''
-              }"
+              @highlight="() => handlePageHighlight()"
             >
               <IconArrowRight />
               {{ item.label }}
@@ -178,62 +136,16 @@ onMounted(() => {
           >
             <template v-if="group.type === 'group'">
               <CommandMenuItem
-                v-for="item in group.children?.filter((i: NavigationItem) => i.type === 'page' || i.type === 'component')"
+                v-for="item in group.children?.filter((i: NavigationItem) => i.type === 'page')"
                 :key="item.title"
                 :value="item.title?.toString() ? `${group.title} ${item.title}` : ''"
-                :keywords="item.type === 'component' ? ['component'] : undefined"
-                @highlight="() => handlePageHighlight(item.type === 'component', item)"
+                @highlight="() => handlePageHighlight()"
                 @select="() => runCommand(() => router.push(item.path))"
               >
-                <div v-if="item.type === 'component'" class="border-muted-foreground aspect-square size-4 rounded-full border border-dashed" />
-                <IconArrowRight v-else />
+                <IconArrowRight />
                 {{ item.title }}
               </CommandMenuItem>
             </template>
-          </CommandGroup>
-          <CommandGroup
-            v-for="colorPalette in colors"
-            :key="colorPalette.name"
-            :heading="colorPalette.name.charAt(0).toUpperCase() + colorPalette.name.slice(1)"
-            class="!p-0 [&_[data-slot=command-group-heading]]:!p-3"
-          >
-            <CommandMenuItem
-              v-for="color in colorPalette.colors"
-              :key="color.hex"
-              :value="color.className"
-              :keywords="['color', color.name, color.className]"
-              @highlight="() => handleColorHighlight(color)"
-              @select="() => runCommand(() => copy(color.oklch))"
-            >
-              <div
-                class="border-ghost aspect-square size-4 rounded-sm bg-(--color) after:rounded-sm"
-                :style="{ '--color': color.oklch }"
-              />
-              {{ color.className }}
-              <span class="text-muted-foreground ml-auto font-mono text-xs font-normal tabular-nums">
-                {{ color.oklch }}
-              </span>
-            </CommandMenuItem>
-          </CommandGroup>
-          <CommandGroup
-            v-if="blocks?.length"
-            heading="Blocks"
-            class="!p-0 [&_[data-slot=command-group-heading]]:!p-3"
-          >
-            <CommandMenuItem
-              v-for="block in blocks"
-              :key="block.name"
-              :value="block.name"
-              :keywords="['block', block.name, block.description, ...block.categories]"
-              @highlight="() => handleBlockHighlight(block)"
-              @select="() => runCommand(() => router.push(`/blocks/${block.categories[0]}#${block.name}`))"
-            >
-              <Square />
-              {{ block.description }}
-              <span class="text-muted-foreground ml-auto font-mono text-xs font-normal tabular-nums">
-                {{ block.name }}
-              </span>
-            </CommandMenuItem>
           </CommandGroup>
         </CommandList>
       </Command>
@@ -242,14 +154,7 @@ onMounted(() => {
           <CommandMenuKbd>
             <CornerDownLeft />
           </CommandMenuKbd>
-          <span v-if="selectedType === 'page' || selectedType === 'component'">Go to Page</span>
-          <span v-if="selectedType === 'color'">Copy OKLCH</span>
-        </div>
-        <Separator v-if="copyPayload" orientation="vertical" class="!h-4" />
-        <div v-if="copyPayload" class="flex items-center gap-1">
-          <CommandMenuKbd>{{ isMac ? '⌘' : 'Ctrl' }}</CommandMenuKbd>
-          <CommandMenuKbd>C</CommandMenuKbd>
-          {{ copyPayload }}
+          <span>Go to Page</span>
         </div>
       </div>
     </DialogContent>

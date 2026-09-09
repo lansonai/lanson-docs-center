@@ -47,6 +47,14 @@
 @theme inline {
   --breakpoint-3xl: 1600px;
   --breakpoint-4xl: 2000px;
+  /* Motion system: emphasized ease for enter/hover (fast start, soft landing),
+     standard ease for exits and loops. Consumed via `ease-emphasized` /
+     `ease-standard` utilities and `var(--duration-*)` in component styles. */
+  --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.45, 0, 0.55, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 320ms;
   --font-sans: var(--font-sans);
   --font-heading: var(--font-heading);
   --font-mono: var(--font-mono);
@@ -299,6 +307,34 @@
 
   &::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/* Page transition (wired via <NuxtPage :transition> in app.vue).
+   Opacity + small translateY only — no layout-shifting transforms. */
+.page-enter-active,
+.page-leave-active {
+  transition:
+    opacity var(--duration-normal) var(--ease-emphasized),
+    transform var(--duration-normal) var(--ease-emphasized);
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.page-leave-to {
+  opacity: 0;
+}
+
+/* Respect reduced-motion: kill decorative motion, keep state changes instant. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

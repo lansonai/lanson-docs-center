@@ -13,7 +13,7 @@ const colorMode = useColorMode()
     <ConfigProvider>
       <TooltipProvider>
         <NuxtLayout>
-          <NuxtPage />
+          <NuxtPage :transition="{ name: 'page', mode: 'out-in' }" />
         </NuxtLayout>
       </TooltipProvider>
     </ConfigProvider>
