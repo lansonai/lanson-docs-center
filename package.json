@@ -10,9 +10,10 @@
     "packages/*"
   ],
   "engines": {
-    "pnpm": ">=9.6.0"
+    "pnpm": ">=10.25.0"
   },
   "scripts": {
+    "preinstall": "npx only-allow pnpm",
     "dev": "pnpm --filter lanson-docs-center dev",
     "build": "pnpm --filter lanson-docs-center build",
     "preview": "pnpm --filter lanson-docs-center preview",

@@ -6,7 +6,7 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   srcDir: '.',
   devServer: {
-    allowedHosts: ['.trycloudflare.com', '.deth.us'],
+    allowedHosts: ['.trycloudflare.com', '.deth.us', '.lanson.dev'],
   },
   css: ['~/assets/css/main.css', 'vue-sonner/style.css'],
   modules: ['@nuxtjs/color-mode', '@nuxt/content', 'nuxt-shiki', 'nuxt-og-image', '@nuxt/image', '@nuxt/fonts'],
@@ -64,7 +64,7 @@ export default defineNuxtConfig({
   },
   vite: {
     server: {
-      allowedHosts: ['.trycloudflare.com', '.deth.us'],
+      allowedHosts: ['.trycloudflare.com', '.deth.us', '.lanson.dev'],
       // Prevent dev module caching across dev-server restarts: Nuxt marks
       // /_nuxt/** immutable, so a restart changes ?v= hashes while browsers
       // keep serving stale modules -> silent hydration failure.

@@ -38,7 +38,7 @@ useSeoMeta({
     >
       <div class="flex min-w-0 flex-1 flex-col">
         <div class="h-(--top-spacing) shrink-0" />
-        <div class="mx-auto flex w-full max-w-160 min-w-0 flex-1 flex-col gap-6 px-4 py-6 text-foreground md:px-0 lg:py-8 dark:text-foreground">
+        <div class="mx-auto flex w-full max-w-160 min-w-0 flex-1 flex-col gap-6 px-4 py-6 text-foreground md:px-6 lg:py-8 dark:text-foreground">
           <div class="flex flex-col gap-2">
             <div class="flex flex-col gap-2">
               <div class="flex items-center justify-between md:items-start">

@@ -102,12 +102,12 @@ const resources = [
       </PageHeaderHeading>
       <PageHeaderDescription>{{ description }}</PageHeaderDescription>
       <PageActions>
-        <Button as-child size="sm" class="h-[31px] rounded-lg">
+        <Button as-child size="sm" class="h-[1.9375rem] rounded-lg">
           <NuxtLink href="/docs/start">
             Get started <IconArrowRight data-icon="inline-end" />
           </NuxtLink>
         </Button>
-        <Button as-child size="sm" variant="outline" class="h-[31px] rounded-lg">
+        <Button as-child size="sm" variant="outline" class="h-[1.9375rem] rounded-lg">
           <NuxtLink href="/docs/start/quickstart">
             5-minute quickstart
           </NuxtLink>
@@ -115,8 +115,8 @@ const resources = [
       </PageActions>
     </PageHeader>
 
-    <div class="container-wrapper flex-1 p-0">
-      <div class="container md:px-0 lg:max-w-none">
+    <div class="container-wrapper flex-1">
+      <div class="container">
         <section class="py-8 lg:py-12">
           <h2 class="text-2xl font-semibold tracking-tight">
             What do you want to build?

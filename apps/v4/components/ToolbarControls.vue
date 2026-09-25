@@ -11,7 +11,7 @@ const dialogOpen = ref(false)
 <template>
   <Button
     size="sm"
-    class="hidden h-[31px] rounded-lg pl-2 md:flex"
+    class="hidden h-[1.9375rem] rounded-lg pl-2 md:flex"
     @click="dialogOpen = true"
   >
     <HugeiconsIcon

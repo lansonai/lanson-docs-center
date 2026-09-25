@@ -64,7 +64,7 @@ const currentItem = computed(() => {
                   />
                   <div v-if="index === group.items.length - 1" class="bg-sidebar absolute top-1/2 -bottom-1 -left-2.5 w-1" />
                   <SidebarMenuButton
-                    class="data-[active=true]:bg-accent data-[active=true]:border-accent 3xl:fixed:w-full 3xl:fixed:max-w-48 relative h-[26px] w-fit cursor-pointer overflow-visible border border-transparent text-[0.8rem] font-normal after:absolute after:inset-x-0 after:-inset-y-1 after:-z-0 after:rounded-md"
+                    class="data-[active=true]:bg-accent data-[active=true]:border-accent 3xl:fixed:w-full 3xl:fixed:max-w-48 relative h-[1.625rem] w-fit cursor-pointer overflow-visible border border-transparent text-[0.8rem] font-normal after:absolute after:inset-x-0 after:-inset-y-1 after:-z-0 after:rounded-md"
                     :data-active="item.name === currentItem?.name"
                     :is-active="item.name === currentItem?.name"
                     @click="() => {
