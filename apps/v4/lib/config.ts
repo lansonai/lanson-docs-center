@@ -6,7 +6,11 @@ export const siteConfig = {
     'Developer documentation for LansonAI\'s real-time and recorded speech APIs. Turn live speech into stable, readable, multilingual context.',
   links: {
     twitter: 'https://x.com/zhenthinks',
-    github: 'https://github.com/lansonai/lanson-docs-center',
+    linkedin: 'https://linkedin.com/company/lansonai',
+    support: 'mailto:support@lansonai.com',
+    status: 'https://control.lansonai.com/status/lanson-audio',
+    openapi: 'https://audio.lansonai.com/openapi.json',
+    appStore: 'https://apps.apple.com/us/app/lanson-flow/id6796537330',
   },
   navItems: [
     {

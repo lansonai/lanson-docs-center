@@ -39,3 +39,5 @@ vite.config.ts.timestamp*
 **/temp.json
 
 .claude/*
+.vercel
+.env*
