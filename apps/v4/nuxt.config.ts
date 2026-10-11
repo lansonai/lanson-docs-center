@@ -35,11 +35,8 @@ export default defineNuxtConfig({
         highlight: false,
       },
     },
-    database: {
-      type: 'd1',
-      bindingName: 'DB',
-    },
-    // required to prevent error related to better-sqlite3 during build and deploy
+    // No D1 database — content is baked into a SQLite file at build time and
+    // queried through Nuxt Content's REST API (queryCollection & friends) at runtime.
     experimental: {
       sqliteConnector: 'native',
     },
@@ -137,33 +134,13 @@ export default defineNuxtConfig({
     },
   },
   nitro: {
-    preset: 'cloudflare-module',
+    preset: 'vercel',
     compressPublicAssets: true,
     prerender: {
       crawlLinks: true,
       routes: ['/'],
       failOnError: false,
       autoSubfolderIndex: false,
-    },
-    cloudflare: {
-      deployConfig: true,
-      nodeCompat: true,
-      wrangler: {
-        name: 'lanson-docs-center',
-        d1_databases: [
-          {
-            binding: 'DB',
-            database_id: '4c26cb33-9277-4c9b-8433-42f0a6e84b69',
-          },
-        ],
-        observability: {
-          logs: {
-            enabled: true,
-            head_sampling_rate: 1,
-            invocation_logs: true,
-          },
-        },
-      },
     },
     serverAssets: [
       { baseName: 'blocks', dir: '../registry/new-york-v4/blocks' },
