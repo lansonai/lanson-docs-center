@@ -1,0 +1,13 @@
+# lanson-docs-center
+
+> LansonAI 文档中心 — LansonAI speech API developer docs, built on the shadcn-vue docs UI
+
+## Core Resources
+
+- [GitHub Repository](https://github.com/lansonai/lanson-docs-center): Source code, documentation, and issue tracker.
+- [Website](https://lanson-docs-center.vercel.app): Official website and documentation.
+
+## AI Agent & LLM Indexing
+
+- Structured following the standard /llms.txt specification for AI search engines and coding assistants.
+- Validated via [AccessGuard AI-Readiness Suite](https://ronanchnlps-bit.github.io/).
