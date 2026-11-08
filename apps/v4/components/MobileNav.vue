@@ -78,6 +78,15 @@ function handleNavigate(path: string) {
             >
               {{ item.label }}
             </NuxtLink>
+            <a
+              href="https://developer.lansonai.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-lg font-medium"
+              @click="open = false"
+            >
+              Console ↗
+            </a>
           </div>
         </div>
 

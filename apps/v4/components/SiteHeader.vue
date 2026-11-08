@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { ArrowUpRight } from '@lucide/vue'
 import { siteConfig } from '@/lib/config'
+import { Button } from '@/registry/new-york-v4/ui/button'
 import { Separator } from '@/registry/new-york-v4/ui/separator'
 
 const { data } = await useNavigation()
@@ -24,6 +26,12 @@ const docData = computed(() => data.value!.find(i => i.stem === 'docs')!)
             orientation="vertical"
             class="ml-2 hidden md:block"
           />
+          <Button variant="outline" size="sm" as-child class="hidden sm:inline-flex">
+            <a href="https://developer.lansonai.com" target="_blank" rel="noopener noreferrer">
+              Console
+              <ArrowUpRight class="size-3.5" />
+            </a>
+          </Button>
           <ModeSwitcher />
           <!-- <DesignerActions /> -->
         </div>
