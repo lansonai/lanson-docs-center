@@ -3,9 +3,6 @@ import {
   IconArrowRight,
   IconBook,
   IconBroadcast,
-  IconFileDescription,
-  IconFileText,
-  IconGauge,
   IconHeadphones,
   IconListDetails,
   IconMicrophone,
@@ -15,9 +12,9 @@ import {
 import { Button } from '@/registry/new-york-v4/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/registry/new-york-v4/ui/card'
 
-const title = 'LansonAI Docs'
+const title = 'Lanson Live API'
 const description
-  = 'Developer documentation for LansonAI\'s real-time and recorded speech APIs. Turn live speech into stable, readable, multilingual context.'
+  = 'Build with LansonAI\'s Voice Context Layer for Live Speech. Stream speech, receive stable text, and add translation to your application.'
 
 useSeoMeta({
   title,
@@ -31,7 +28,7 @@ const sections = [
   {
     title: 'Start',
     description: 'Get an API key, make your first request in five minutes, and choose the right API.',
-    href: '/docs/start',
+    href: '/docs/start/quickstart',
     icon: IconRocket,
   },
   {
@@ -48,7 +45,7 @@ const sections = [
   },
   {
     title: 'Concepts',
-    description: 'The Voice Context Layer, transcript stability, latency model, and the Trinity Engine.',
+    description: 'How Trinity Engine, StableStream™, and LiveFinal™ turn live speech into usable context.',
     href: '/docs/concepts',
     icon: IconBook,
   },
@@ -71,39 +68,21 @@ const sections = [
     icon: IconShieldCheck,
   },
 ]
-
-const resources = [
-  {
-    title: 'llms.txt',
-    description: 'Machine-readable documentation index for coding agents.',
-    href: '/llms.txt',
-    icon: IconFileText,
-  },
-  {
-    title: 'OpenAPI spec',
-    description: 'Schema-accurate API specification for the audio gateway.',
-    href: 'https://audio.lansonai.com/openapi.json',
-    icon: IconFileDescription,
-  },
-  {
-    title: 'Service status',
-    description: 'Public health board for Lanson Audio — no login required.',
-    href: '/status',
-    icon: IconGauge,
-  },
-]
 </script>
 
 <template>
   <div class="flex flex-1 flex-col">
     <PageHeader class="md:**:[.container]:pb-8 lg:**:[.container]:pb-12">
+      <p class="text-xs font-medium tracking-wide text-muted-foreground">
+        LansonAI Developer Docs
+      </p>
       <PageHeaderHeading class="max-w-4xl">
         {{ title }}
       </PageHeaderHeading>
       <PageHeaderDescription>{{ description }}</PageHeaderDescription>
       <PageActions>
         <Button as-child size="sm" class="h-[1.9375rem] rounded-lg">
-          <NuxtLink href="/docs/start">
+          <NuxtLink href="/docs/start/quickstart">
             Get started <IconArrowRight data-icon="inline-end" />
           </NuxtLink>
         </Button>
@@ -113,6 +92,7 @@ const resources = [
           </NuxtLink>
         </Button>
       </PageActions>
+      <DocsAgentEntry />
     </PageHeader>
 
     <div class="container-wrapper flex-1">
@@ -141,38 +121,6 @@ const resources = [
                   </div>
                   <CardDescription class="mt-2">
                     {{ section.description }}
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            </NuxtLink>
-          </div>
-        </section>
-
-        <section class="border-t py-8 lg:py-12">
-          <h2 class="text-2xl font-semibold tracking-tight">
-            For coding agents
-          </h2>
-          <p class="text-muted-foreground mt-2 text-base">
-            This documentation is designed to be human-readable, agent-readable, and schema-accurate.
-          </p>
-          <div class="mt-6 grid gap-4 sm:grid-cols-3">
-            <NuxtLink
-              v-for="resource in resources"
-              :key="resource.href"
-              :to="resource.href"
-              :target="resource.href.startsWith('http') ? '_blank' : undefined"
-              class="group"
-            >
-              <Card class="h-full transition-colors group-hover:border-foreground/20">
-                <CardHeader>
-                  <div class="flex items-center gap-2">
-                    <component :is="resource.icon" class="size-4 text-muted-foreground" />
-                    <CardTitle class="text-base">
-                      {{ resource.title }}
-                    </CardTitle>
-                  </div>
-                  <CardDescription class="mt-2">
-                    {{ resource.description }}
                   </CardDescription>
                 </CardHeader>
               </Card>

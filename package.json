@@ -16,6 +16,7 @@
     "preinstall": "npx only-allow pnpm",
     "dev": "pnpm --filter lanson-docs-center dev",
     "build": "pnpm --filter lanson-docs-center build",
+    "deploy": "pnpm --filter lanson-docs-center run deploy",
     "preview": "pnpm --filter lanson-docs-center preview",
     "prepare": "pnpm simple-git-hooks && pnpm --filter shadcn-vue build",
     "lint": "eslint .",

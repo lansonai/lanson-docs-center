@@ -42,7 +42,7 @@ import {
 
 const title = 'Service Status'
 const description
-  = 'Current operational status and availability for Lanson Audio APIs.'
+  = 'Current operational status and availability for Lanson Live API.'
 
 useSeoMeta({
   title,
@@ -169,7 +169,7 @@ const statusConfig = computed(() => {
   if (loading.value) {
     return {
       title: isEn ? 'Checking service status…' : '正在检查服务状态…',
-      subtitle: isEn ? 'Fetching the latest telemetry from Lanson Audio Gateway.' : '正在获取 Lanson Audio 网关的最新健康状态。',
+      subtitle: isEn ? 'Checking the latest Lanson Live API service status.' : '正在获取 Lanson Live API 的最新服务状态。',
       badge: isEn ? 'Checking' : '检查中',
       cardBorder: 'border-border',
       cardBg: 'from-muted/40 via-muted/10 to-transparent',
@@ -186,8 +186,8 @@ const statusConfig = computed(() => {
       return {
         title: isEn ? 'Degraded Performance' : '部分服务性能降级',
         subtitle: isEn
-          ? 'Some Lanson Audio capabilities are experiencing elevated latency or intermittent errors.'
-          : '部分 Lanson Audio 服务出现延迟升高或偶发波动。',
+          ? 'Some Lanson Live API capabilities are experiencing elevated latency or intermittent errors.'
+          : '部分 Lanson Live API 服务出现延迟升高或偶发波动。',
         badge: isEn ? 'Degraded' : '性能降级',
         cardBorder: 'border-amber-500/30 dark:border-amber-500/25',
         cardBg: 'from-amber-500/[0.08] via-amber-500/[0.02] to-transparent dark:from-amber-500/[0.12] dark:via-amber-500/[0.03] dark:to-transparent',
@@ -201,8 +201,8 @@ const statusConfig = computed(() => {
       return {
         title: isEn ? 'Major Service Outage' : '核心服务异常中断',
         subtitle: isEn
-          ? 'Lanson Audio is experiencing a service disruption. Engineers are actively investigating.'
-          : 'Lanson Audio 服务出现中断，工程师正在紧急排查。',
+          ? 'Lanson Live API is experiencing a service disruption.'
+          : 'Lanson Live API 服务出现中断。',
         badge: isEn ? 'Major Outage' : '服务异常',
         cardBorder: 'border-rose-500/30 dark:border-rose-500/25',
         cardBg: 'from-rose-500/[0.08] via-rose-500/[0.02] to-transparent dark:from-rose-500/[0.12] dark:via-rose-500/[0.03] dark:to-transparent',
@@ -231,8 +231,8 @@ const statusConfig = computed(() => {
       return {
         title: isEn ? 'All Systems Operational' : '所有系统运行正常',
         subtitle: isEn
-          ? 'All Lanson Audio APIs and streaming pipelines are operating normally.'
-          : 'Lanson Audio 各项 API 与流式语音链路均运行正常。',
+          ? 'Lanson Live API services and streaming pipelines are operating normally.'
+          : 'Lanson Live API 各项服务与流式语音链路均运行正常。',
         badge: isEn ? 'Operational' : '正常运行',
         cardBorder: 'border-emerald-500/30 dark:border-emerald-500/25',
         cardBg: 'from-emerald-500/[0.07] via-emerald-500/[0.02] to-transparent dark:from-emerald-500/[0.11] dark:via-emerald-500/[0.03] dark:to-transparent',
@@ -692,19 +692,19 @@ const incidents = computed(() => (data.value?.incidents ?? []).map((row, index) 
                 <span class="absolute size-2 rounded-full animate-ping opacity-75" :class="statusConfig.dot" />
                 <span class="size-1.5 rounded-full" :class="statusConfig.dot" />
               </span>
-              <span class="font-medium text-foreground/90">Lanson Audio Gateway</span>
+              <span class="font-medium text-foreground/90">Lanson Live API</span>
               <span class="text-border">·</span>
               <span>{{ currentLang === 'en' ? 'Production' : '生产环境' }}</span>
             </div>
 
             <div class="space-y-1.5">
               <h1 class="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl lg:text-4xl">
-                {{ currentLang === 'en' ? 'Lanson Audio Status' : 'Lanson Audio 服务状态' }}
+                {{ currentLang === 'en' ? 'Lanson Live API Status' : 'Lanson Live API 服务状态' }}
               </h1>
               <p class="max-w-xl text-sm text-muted-foreground sm:text-base">
                 {{ currentLang === 'en'
-                  ? 'Current operational status and availability for Lanson Audio APIs.'
-                  : 'Lanson Audio API 的实时运行状态与可用性监控。'
+                  ? 'Current operational status and availability for Lanson Live API.'
+                  : 'Lanson Live API 的实时运行状态与可用性监控。'
                 }}
               </p>
             </div>
@@ -724,7 +724,7 @@ const incidents = computed(() => (data.value?.incidents ?? []).map((row, index) 
                 <DialogHeader>
                   <DialogTitle class="flex items-center gap-2 text-base">
                     <Bell class="size-4 text-primary" />
-                    {{ currentLang === 'en' ? 'Subscribe to Status Updates' : '订阅 Lanson Audio 状态通知' }}
+                    {{ currentLang === 'en' ? 'Subscribe to Status Updates' : '订阅 Lanson Live API 状态通知' }}
                   </DialogTitle>
                   <DialogDescription class="text-xs leading-relaxed">
                     {{ currentLang === 'en'
@@ -1152,7 +1152,7 @@ const incidents = computed(() => (data.value?.incidents ?? []).map((row, index) 
         <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2 sm:flex-wrap">
           <div class="inline-flex items-center gap-1.5 font-medium text-foreground">
             <Waves class="size-3.5 text-primary" />
-            <span>Lanson Audio Gateway v1</span>
+            <span>Lanson Live API</span>
           </div>
           <div v-if="freshness || (queryHealth && queryHealth.degraded)" class="flex items-center gap-2 flex-wrap">
             <span v-if="freshness" class="hidden text-border sm:inline">·</span>

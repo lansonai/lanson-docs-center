@@ -1,0 +1,220 @@
+{
+  "rate_card_status": "published",
+  "rate_card_version": "2026-11-09",
+  "currency": "USD",
+  "billing_unit": "audio_minute",
+  "effective_from": null,
+  "base_transcription": {
+    "selection": "exactly_one",
+    "tiers": [
+      {
+        "id": "offline_transcription",
+        "name": "Offline Transcription",
+        "usd_per_minute": 0.0043,
+        "availability": "available",
+        "surface": "batch_jobs",
+        "description": "Recordings, long audio/video files, and other asynchronous work submitted through the batch-jobs plane.",
+        "usd_per_hour": 0.258
+      },
+      {
+        "id": "realtime_transcription",
+        "name": "Realtime Transcription",
+        "usd_per_minute": 0.0077,
+        "availability": "available",
+        "surface": "realtime_ws",
+        "description": "Live captions and streaming transcription over the realtime WebSocket plane.",
+        "usd_per_hour": 0.462
+      },
+      {
+        "id": "realtime_semantic_turn_detection",
+        "name": "Realtime + Semantic Turn Detection",
+        "usd_per_minute": 0.01,
+        "availability": "coming_soon",
+        "surface": "realtime_ws",
+        "description": "Mutually exclusive realtime bundle that includes realtime transcription plus semantic turn detection, aimed at conversational and voice-agent workloads.",
+        "billing_note": "Semantic turn detection is not VAD and is not caption sentence splitting. It is not yet available on the public gateway.",
+        "usd_per_hour": 0.6
+      }
+    ]
+  },
+  "addons": [
+    {
+      "id": "context_aware_refinement_offline",
+      "name": "Recorded Context-aware Refinement",
+      "usd_per_minute": 0.012,
+      "availability": "available",
+      "surface": "batch_jobs",
+      "description": "Optional AI context correction, natural sentence breaks, semantic punctuation, and consistent proper nouns and terminology for recorded audio.",
+      "billing_note": "Offline/batch correction runs when the correction backend is configured (`review` defaults on). The flag is fixed for the job.",
+      "usd_per_hour": 0.72
+    },
+    {
+      "id": "context_aware_refinement_realtime",
+      "name": "Realtime Context-aware Refinement",
+      "usd_per_minute": 0.012,
+      "availability": "available",
+      "surface": "realtime_ws",
+      "description": "Optional AI context correction for realtime sessions.",
+      "billing_note": "Pro profile only. The Lite profile is included in the base transcription price. Enabled per session via `session.update.refinement` before audio; the flag is fixed for the session.",
+      "usd_per_hour": 0.72
+    },
+    {
+      "id": "context_aware_translation",
+      "name": "Realtime Context-aware Translation",
+      "usd_per_minute": 0.01,
+      "availability": "available",
+      "surface": "realtime_ws",
+      "description": "Optional AI context-aware realtime text translation, priced per target language.",
+      "billing_note": "Per target language: each additional output language adds one translation charge. Enabled per session via `session.update.target_languages` (or `translate_to`); the target set is fixed before audio.",
+      "usd_per_hour": 0.6
+    },
+    {
+      "id": "context_aware_translation_offline",
+      "name": "Recorded Context-aware Translation",
+      "usd_per_minute": 0.01,
+      "availability": "available",
+      "surface": "batch_jobs",
+      "description": "Optional AI context-aware translation for recorded audio, priced per target language.",
+      "billing_note": "Per target language: each additional output language adds one translation charge. Enabled per job via `target_languages` (or `translate_to`); the target set is fixed at job creation.",
+      "usd_per_hour": 0.6
+    }
+  ],
+  "refinement_profiles": {
+    "lite": {
+      "name": "Lite",
+      "billing": "included",
+      "description": "Short prompt, two segments of context, tight character and completion budgets. Included in the base transcription price."
+    },
+    "pro": {
+      "name": "Pro",
+      "billing": "addon",
+      "addon_id": "context_aware_refinement_realtime",
+      "description": "Full prompt, ten segments of context, and a rolling guide. Billed as the realtime refinement add-on."
+    }
+  },
+  "combinations": [
+    {
+      "id": "offline",
+      "name": "Offline transcription",
+      "components": [
+        "offline_transcription"
+      ],
+      "usd_per_minute": 0.0043,
+      "usd_per_hour": 0.258,
+      "availability": "available"
+    },
+    {
+      "id": "offline_refinement",
+      "name": "Offline + AI refinement",
+      "components": [
+        "offline_transcription",
+        "context_aware_refinement_offline"
+      ],
+      "usd_per_minute": 0.0163,
+      "usd_per_hour": 0.978,
+      "availability": "available"
+    },
+    {
+      "id": "offline_refinement_translation",
+      "name": "Offline + refinement + one translation language",
+      "components": [
+        "offline_transcription",
+        "context_aware_refinement_offline",
+        "context_aware_translation_offline"
+      ],
+      "usd_per_minute": 0.0263,
+      "usd_per_hour": 1.578,
+      "availability": "available"
+    },
+    {
+      "id": "realtime",
+      "name": "Realtime transcription",
+      "components": [
+        "realtime_transcription"
+      ],
+      "usd_per_minute": 0.0077,
+      "usd_per_hour": 0.462,
+      "availability": "available"
+    },
+    {
+      "id": "realtime_turn",
+      "name": "Realtime + semantic turn detection",
+      "components": [
+        "realtime_semantic_turn_detection"
+      ],
+      "usd_per_minute": 0.01,
+      "usd_per_hour": 0.6,
+      "availability": "coming_soon"
+    },
+    {
+      "id": "realtime_refinement",
+      "name": "Realtime + AI refinement",
+      "components": [
+        "realtime_transcription",
+        "context_aware_refinement_realtime"
+      ],
+      "usd_per_minute": 0.0197,
+      "usd_per_hour": 1.182,
+      "availability": "available"
+    },
+    {
+      "id": "realtime_translation",
+      "name": "Realtime + one translation language",
+      "components": [
+        "realtime_transcription",
+        "context_aware_translation"
+      ],
+      "usd_per_minute": 0.0177,
+      "usd_per_hour": 1.062,
+      "availability": "available"
+    },
+    {
+      "id": "realtime_refinement_translation",
+      "name": "Realtime + refinement + one translation language",
+      "components": [
+        "realtime_transcription",
+        "context_aware_refinement_realtime",
+        "context_aware_translation"
+      ],
+      "usd_per_minute": 0.0297,
+      "usd_per_hour": 1.782,
+      "availability": "available",
+      "example": "1,000 minutes = 1,000 × $0.0297 = $29.70"
+    },
+    {
+      "id": "realtime_turn_refinement_translation",
+      "name": "Realtime + turn detection + refinement + one translation language",
+      "components": [
+        "realtime_semantic_turn_detection",
+        "context_aware_refinement_realtime",
+        "context_aware_translation"
+      ],
+      "usd_per_minute": 0.032,
+      "usd_per_hour": 1.92,
+      "availability": "coming_soon"
+    }
+  ],
+  "metering_rules": [
+    "Bill by actual processed audio seconds; do not round a request up to a whole minute.",
+    "Silence that is sent and processed counts toward realtime duration. Idle time where the connection is open but no audio is processed is not billed; this still needs implementation verification.",
+    "Partial/final/caption revisions on the same stream are not charged ASR again. Resubmitting independent audio is a new task.",
+    "Turn detection is included in the upgraded realtime tier. Refinement is billed on the audio duration where enabled. Translation is billed per target language × processed duration.",
+    "Feature flags are frozen per session/job: refinement and translation targets are set before audio and apply to the whole session/job. Mid-session changes are rejected.",
+    "Failed retries, duplicate-connection dedupe, and partial-failure refunds must be tested before billing is enabled.",
+    "Subscription products, deployment integration, hosting, operations, and enterprise SLAs are quoted separately. Existing customer agreements are not changed retroactively.",
+    "Each billing record must store the rate-card version, customer agreement, audio seconds, feature flags, target-language count, and usage ID."
+  ],
+  "examples": [
+    "1,000 minutes of realtime + refinement + one translation language = 1,000 × $0.0297 = $29.70.",
+    "Quote from the exact per-minute rate. The ~$1.80/hour figure is display-only and is not a second billing rate."
+  ],
+  "notes": [
+    "Base transcription tiers are mutually exclusive; choose exactly one.",
+    "Realtime refinement has two profiles: `lite` (included in the base transcription price) and `pro` (billed as the realtime refinement add-on).",
+    "Basic punctuation, ordinary segmentation, and VAD are included at no extra charge.",
+    "Semantic turn detection is not VAD and is not caption sentence splitting.",
+    "Refinement and translation can be enabled independently. Translation includes the context understanding required to produce the translation and does not require refinement.",
+    "This rate card covers the transcription API only. Lanson Live subscription plans (Free / Flow / Focus / Enterprise) meter active speech minutes and are unaffected by this card.",
+    "Stripe price IDs are intentionally absent until usage billing is enabled."
+  ]
+}

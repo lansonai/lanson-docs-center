@@ -6,6 +6,7 @@ catalog:
   '@internationalized/date': ^3.12.2
   '@lucide/vue': ^1.28.0
   '@nuxt/fonts': 0.14.0
+  '@nuxtjs/seo': 5.3.16
   '@tailwindcss/vite': ^4.3.3
   '@takumi-rs/core': ^2.5.4
   '@takumi-rs/wasm': ^2.5.4

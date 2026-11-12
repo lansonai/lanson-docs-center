@@ -1,7 +1,9 @@
-# LansonAI — Full Documentation Index (machine-readable)
+# Lanson Live API — Documentation for AI assistants
 
-> LansonAI is the Voice Context Layer for live speech. This is the complete
-> machine-readable documentation index for coding agents. Each entry links to
+Last updated: 2026-11-08
+
+> LansonAI is the Voice Context Layer for Live Speech. Lanson Live API is its
+> developer-facing speech capability. Each entry links to
 > the canonical page served by the docs site.
 >
 > Base URL: https://docs.lansonai.com
@@ -10,24 +12,34 @@
 >
 > Design principle: Human-readable + Agent-readable + Schema-accurate.
 > Pages are organized by "what a developer wants to build", not by internal
-> technology names. Technology concepts (StableStream™, Trinity Engine™) are
+> technology names. Technology concepts (Trinity Engine, StableStream™, LiveFinal™) are
 > explained only after a developer has chosen a capability.
+
+## Brand and technology
+
+- LansonAI: company and platform — Voice Context Layer for Live Speech.
+- Lanson Live: speech model brand; model name `lanson-live-1`. Lanson Live API exposes the capability to developers, without a model-selection step.
+- Trinity Engine: core engine for multi-model orchestration, speech processing, and context coordination. Not a selectable model.
+- StableStream™: core technology for continuous, stable, readable live text. Not an event type.
+- LiveFinal™: progressive correction and segment-finalization mechanism. The public Realtime endpoint currently delivers a single completed result per successfully processed utterance, with optional refinement applied before delivery.
+- Lanson Live App: end-user live speech product; distinct from Lanson Live API. Other product lines include Lanson Flow, Lanson Reception, and Lanson Podcast.
+- HTTP `model` is an optional compatibility field; omit it in new examples. If a client requires a name, use `lanson-live-1`. Existing request values need not change. Do not expose provider/worker names as public model brands.
+- Preserve endpoint URLs, request field names, and event identifiers exactly as documented. Do not fabricate partial/revision/final event types or treat manual flush as an implemented finalization command.
 
 ## Get Started
 
-- [Overview](/docs/start): LansonAI Developer Platform — Voice Context Layer; what you can build; Available / Preview / Coming soon capability matrix.
-- [Quickstart](/docs/start/quickstart): 5-minute first real-time request. API Key → connect WebSocket → send audio → receive stable text.
+- [Get started with Lanson Live API](/docs/start/quickstart): API key → Realtime WebSocket → audio → completed text; Segment and Batch paths follow.
 - [Authentication](/docs/start/authentication): API Key, server-side usage, browser-side security (short-lived session token, HMAC), secret management.
-- [SDKs](/docs/start/sdks): SDK status and direct HTTP / WebSocket usage.
-- [Choose an API](/docs/start/choose-an-api): Realtime Voice Context vs Recorded Audio vs Voice Agent — decision table.
+- [Choose an API](/docs/start/choose-an-api): Realtime, Segment, and Batch workflows of Lanson Live API; not model choices.
+- [Pricing](/docs/start/pricing): Lanson Live API audio-minute rates, optional refinement/translation, and prepaid credits; separate from App subscriptions. Live source: https://audio.lansonai.com/v1/pricing.
 
 ## Realtime Voice Context
 
-- [Overview](/docs/realtime): What the Realtime API does, inputs, outputs, architecture diagram, vs Recorded.
-- [Realtime Quickstart](/docs/realtime/quickstart): Shortest runnable WebSocket example (Python / TypeScript / browser JS).
+- [Overview](/docs/realtime): Lanson Live API Realtime inputs, completed text, optional correction/translation, and technology boundaries.
+- [Realtime Quickstart](/docs/realtime/quickstart): Python, Node.js, and browser connection examples; supply real PCM audio instead of placeholders.
 - [Connection Lifecycle](/docs/realtime/connection-lifecycle): Connect → configure → stream audio → receive events → close/reconnect; state machine, timeouts, idle/session limits.
 - [Audio Input](/docs/realtime/audio-input): PCM, sample rate, channels, chunk size, supported formats, chunk/latency tradeoffs.
-- [Transcript Lifecycle](/docs/realtime/transcript-lifecycle): partial / stabilized / final semantics; audio → speech detected → working transcript → context stabilization → stable segment → final segment.
+- [Transcript Lifecycle](/docs/realtime/transcript-lifecycle): VAD → recognition → optional refinement → one completed event per successful utterance. No partial or later-revision protocol on this endpoint.
 - [Realtime Translation](/docs/realtime/realtime-translation): Source/translation mapping, language config, language switching, latency behavior.
 - [Session Configuration](/docs/realtime/session-configuration): language and session-level options; config timing (connect vs runtime).
 - [Handling Interruptions & Silence](/docs/realtime/interruptions-silence): silence, pause, session continuation, VAD / end-of-speech behavior.
@@ -36,28 +48,29 @@
 
 - [Overview](/docs/recorded): Recorded vs Realtime, when to use which, current capability boundary.
 - [Transcribe Audio](/docs/recorded/transcribe-audio): Upload file / URL → transcript; sync vs async (webhook / poll); file size / format limits.
-- [Timestamps & Speakers](/docs/recorded/timestamps-speakers): word / segment timestamps, speaker diarization, field semantics and precision.
+- [Timestamps & Speakers](/docs/recorded/timestamps-speakers): Segment timestamps, precision limits, and speaker-diarization availability.
 - [Subtitles](/docs/recorded/subtitles): SRT / VTT generation; segmentation rules; relation to timestamps.
 - [Translation](/docs/recorded/translation): File-level translation.
-- [Structured Results](/docs/recorded/structured-results): summary, chapters, action items — only genuinely stable outputs.
+- [Structured Results](/docs/recorded/structured-results): Current result envelope and limitations of summary, chapters, and action items.
 
 ## Concepts
 
 - [Voice Context Layer](/docs/concepts): What Voice Context is; vs raw STT output; why live speech needs a context layer.
 - [Stable vs. Partial Text](/docs/concepts/stable-vs-partial-text): Why realtime speech text ≠ token stream; partial vs stable essence; don't self-manufacture jitter.
-- [StableStream](/docs/concepts/stablestream): Technical contract page — when text can change, when stable, how a client should render to avoid jitter.
+- [StableStream™](/docs/concepts/stablestream): Stable, readable output behavior and its public completed-event contract; not a selectable model or accuracy guarantee.
 - [Context-Aware Processing](/docs/concepts/context-aware-processing): How context affects correction / stabilization; behavior, no internal implementation leakage.
 - [Latency Model](/docs/concepts/latency): network / recognition / stabilization / translation latency; measurement and reduction.
 - [Live Translation](/docs/concepts/live-translation): language config, language switching, latency behavior.
 - [Trinity Engine](/docs/concepts/trinity-engine): Shared technology foundation — architecture / concept page.
+- [LiveFinal™](/docs/concepts/livefinal): Progressive correction and segment finalization; exact public events, feature availability, and limits of the current endpoint.
 
 ## Guides
 
 - [Overview](/docs/guides): Browser live captions and other runnable recipes.
 - [Server-side Streaming](/docs/guides/server-side-streaming): Backend pushes audio stream; connection topology; auth / token management.
-- [Build a Stable Caption UI](/docs/guides/stable-caption-ui): Consume StableStream events without jitter; partial / stabilized / final render strategy.
+- [Build a Stable Caption UI](/docs/guides/stable-caption-ui): Render completed segments, order by utterance index, and handle uncertainty without partial-text replacement logic.
 - [Build Live Translation](/docs/guides/live-translation): Bilingual / translated caption UI; side-by-side render; language-switch UI.
-- [Save a Transcript](/docs/guides/save-transcript): Persist final transcript after session; final-segment fetch and merge.
+- [Save a Transcript](/docs/guides/save-transcript): Persist delivered utterances and merge them; no session-wide final event is implied.
 - [Reconnect a Live Session](/docs/guides/reconnection): Network disconnect, retry, resume design; backoff strategy; session continuation boundaries.
 - [Client-VAD Segments](/docs/guides/client-vad-segments): Client-side VAD speech segment transcription.
 
@@ -66,10 +79,11 @@
 - [Overview](/docs/api-reference): Base URL, REST / WebSocket, versioning (`/v1/...`); per-endpoint template.
 - [Realtime API](/docs/api-reference/realtime-api): WebSocket endpoint; connection URL and query params; auth; message format (JSON).
 - [Client Messages](/docs/api-reference/client-messages): All client → Lanson messages; field schemas.
-- [Server Events](/docs/api-reference/server-events): All Lanson → client events; field schemas; ordering and lifecycle.
+- [Server Events](/docs/api-reference/server-events): Exact Lanson Live API event types, correction metadata, translation association, and ordering.
 - [Segment Transcription](/docs/api-reference/segment-transcription): `POST /v1/audio/transcriptions` — synchronous multipart client-VAD transcription.
 - [Batch Jobs](/docs/api-reference/batch-jobs): Async batch transcription jobs — enqueue and poll.
-- [Languages & Models](/docs/api-reference/languages): Available languages; model / capability identifiers.
+- [Languages & Models](/docs/api-reference/languages): Lanson Live model brand (`lanson-live-1`), language behavior, and optional HTTP compatibility field; no model selection required.
+- [Language Detection](/docs/api-reference/language-detection): `POST /v1/audio/language-detection` — detect language of a short clip (≤20s) without transcription; use when the language is unknown.
 - [Errors](/docs/api-reference/errors): HTTP error codes; WebSocket error events; payload schema; common errors and triage.
 - [Rate Limits](/docs/api-reference/rate-limits): Concurrency, requests, session duration; per-plan limits; over-limit behavior.
 - [Admin API](/docs/api-reference/admin): Key provisioning, revocation, plan catalog (internal operators and dashboards only).
@@ -86,6 +100,7 @@
 ## Operational endpoints
 
 - [OpenAPI spec](https://audio.lansonai.com/openapi.json): Machine-readable OpenAPI for the Recorded API.
+- [Rate card JSON](https://audio.lansonai.com/v1/pricing): Machine-readable per-minute pricing used by the developer wallet.
 - [Health](https://audio.lansonai.com/health): Liveness probe.
 - [Status](/status): Service status dashboard.
 
@@ -93,5 +108,6 @@
 
 - The Realtime WebSocket API contract is defined in `/docs/api-reference/client-messages` and `/docs/api-reference/server-events`.
 - The transcript state machine contract is defined in `/docs/realtime/transcript-lifecycle` and `/docs/concepts/stablestream`.
+- LiveFinal™ behavior and availability are described in `/docs/concepts/livefinal`. `transcript.revision` is currently `0`; correction occurs before the single completed event when refinement is enabled. There is no separate public correction event or session-wide final event on the documented Realtime endpoint.
 - Raw Markdown for any page: `https://docs.lansonai.com/raw/docs/<path>.md` (e.g. `/raw/docs/start/quickstart.md`).
 - The Recorded API OpenAPI spec at `https://audio.lansonai.com/openapi.json` is the schema-accurate source for recorded endpoints.

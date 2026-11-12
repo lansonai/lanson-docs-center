@@ -15,6 +15,7 @@ export default defineContentConfig({
           api: z.string(),
         }),
         new: z.boolean(),
+        technology: z.enum(['trinity', 'stablestream', 'livefinal']).optional(),
       }),
     }),
   },

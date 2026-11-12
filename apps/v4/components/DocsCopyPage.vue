@@ -30,8 +30,8 @@ const route = useRoute()
 
 function getPromptUrl(baseURL: string, url: string) {
   return `${baseURL}?q=${encodeURIComponent(
-    `I’m looking at this shadcn-vue documentation: ${url}.
-Help me understand how to use it. Be ready to explain concepts, give examples, or help debug based on it.
+    `I’m looking at the Lanson Live API documentation from LansonAI: ${url}.
+Help me understand the API, write integration examples, or debug using this page. Keep the documented endpoint, parameter, and event identifiers unchanged.
   `,
   )}`
 }

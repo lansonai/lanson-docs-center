@@ -3,8 +3,9 @@ export const siteConfig = {
   url: 'https://docs.lansonai.com',
   ogImage: 'https://docs.lansonai.com/og.jpg',
   description:
-    'Developer documentation for LansonAI\'s real-time and recorded speech APIs. Turn live speech into stable, readable, multilingual context.',
+    'Developer documentation for Lanson Live API — LansonAI\'s Voice Context Layer for Live Speech, powered by Trinity Engine, StableStream™, and LiveFinal™.',
   links: {
+    website: 'https://www.lansonai.com',
     twitter: 'https://x.com/zhenthinks',
     linkedin: 'https://linkedin.com/company/lansonai',
     support: 'mailto:support@lansonai.com',
@@ -18,7 +19,7 @@ export const siteConfig = {
       label: 'Home',
     },
     {
-      href: '/docs/start',
+      href: '/docs/start/quickstart',
       label: 'Docs',
     },
     {

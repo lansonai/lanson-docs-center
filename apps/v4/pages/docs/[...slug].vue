@@ -6,6 +6,7 @@ import {
 } from '@tabler/icons-vue'
 import { Badge } from '@/registry/new-york-v4/ui/badge'
 import { Button } from '@/registry/new-york-v4/ui/button'
+import TechnologyIcon from '~/components/brand/TechnologyIcon.vue'
 
 const route = useRoute()
 
@@ -41,11 +42,14 @@ useSeoMeta({
         <div class="mx-auto flex w-full max-w-160 min-w-0 flex-1 flex-col gap-6 px-4 py-6 text-foreground md:px-6 lg:py-8 dark:text-foreground">
           <div class="flex flex-col gap-2">
             <div class="flex flex-col gap-2">
-              <div class="flex items-center justify-between md:items-start">
-                <h1 class="scroll-m-24 text-3xl font-semibold tracking-tight sm:text-3xl">
-                  {{ page.title }}
-                </h1>
-                <div class="docs-nav flex items-center gap-2">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div class="flex min-w-0 items-center gap-3">
+                  <TechnologyIcon v-if="page.technology" :technology="page.technology" />
+                  <h1 class="scroll-m-24 text-3xl font-semibold tracking-tight sm:text-3xl">
+                    {{ page.title }}
+                  </h1>
+                </div>
+                <div class="docs-nav flex shrink-0 items-center gap-2">
                   <div class="hidden sm:block">
                     <DocsCopyPage :page="page" />
                   </div>
