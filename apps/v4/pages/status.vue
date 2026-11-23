@@ -1,18 +1,20 @@
 <script setup lang="ts">
-import type { LansonAudioLaneStatus, LansonAudioMonitoringResponse } from '~/types/monitoring/lanson-audio'
+import type { BarStatus, HistoryBar, PublicServiceStatus } from '@/lib/status-telemetry'
+import type { LansonAudioMonitoringResponse } from '~/types/monitoring/lanson-audio'
 import {
+  Activity,
   AlertTriangle,
   ArrowUpRight,
   AudioLines,
   Bell,
   CheckCircle2,
-  ChevronDown,
   Clock,
   FileAudio,
   Languages,
   Layers,
   Mail,
   RefreshCw,
+  Server,
   ShieldCheck,
   Waves,
   Webhook,
@@ -20,6 +22,13 @@ import {
 } from '@lucide/vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
+import {
+  buildDailyBars,
+  buildEvaluatedServices,
+  buildHourlyBars,
+  computeServerAvailabilityPct,
+  evaluateOverallStatus,
+} from '@/lib/status-telemetry'
 import { Badge } from '@/registry/new-york-v4/ui/badge'
 import { Button } from '@/registry/new-york-v4/ui/button'
 import { Card } from '@/registry/new-york-v4/ui/card'
@@ -40,34 +49,46 @@ import {
   TabsTrigger,
 } from '@/registry/new-york-v4/ui/tabs'
 
-const title = 'Service Status'
+const title = 'Platform Status'
 const description
-  = 'Current operational status and availability for Lanson Live API.'
+  = 'Current operational status and historical availability for Lanson Live API.'
 
 useSeoMeta({
   title,
   description,
-  ogTitle: `${title} - LansonAI Docs`,
+  ogTitle: `${title} - Lanson Live API`,
   ogDescription: description,
   twitterCard: 'summary_large_image',
 })
 
 const currentLang = ref<'en' | 'zh'>('en')
 
-// Two windows: the short one drives current component status and incidents,
-// the long one drives the availability history strip. Keeping them separate
-// avoids reporting a 90-day aggregate as "current" health.
-const data = ref<LansonAudioMonitoringResponse | null>(null)
-const history = ref<LansonAudioMonitoringResponse | null>(null)
-const loading = ref(true)
+// SSR-first data loading: users see live status immediately on first paint instead of
+// waiting for a client-side loading spinner. 24h and 90d are fetched in parallel on the
+// server (backed by server-side SWR cache); 90d failure never blocks 24h current status.
+const { data: initialPayload } = await useAsyncData(
+  'lanson-live-status',
+  async () => {
+    const [current, longRange] = await Promise.all([
+      $fetch<LansonAudioMonitoringResponse>('/api/monitoring/lanson-audio/overview', {
+        query: { environment: 'production', range: '24h' },
+      }).catch(() => null),
+      $fetch<LansonAudioMonitoringResponse>('/api/monitoring/lanson-audio/overview', {
+        query: { environment: 'production', range: '90d' },
+      }).catch(() => null),
+    ])
+    return { current, longRange }
+  },
+)
+
+const data = ref<LansonAudioMonitoringResponse | null>(initialPayload.value?.current ?? null)
+const history = ref<LansonAudioMonitoringResponse | null>(initialPayload.value?.longRange ?? null)
+const loading = ref(!data.value)
 const isRefetching = ref(false)
 const errorMsg = ref<string | null>(null)
-const lastUpdated = ref<Date>(new Date())
+const lastUpdatedIso = ref<string>(data.value?.meta?.generatedAt ?? '')
 
-// Collapsible sections
-const isIncidentsOpen = ref(true)
-
-// Auto-refresh timer (30s)
+// Auto-refresh timer (30s for current status; 90d history refreshes on manual refresh)
 const REFRESH_INTERVAL_SEC = 30
 const secondsRemaining = ref(REFRESH_INTERVAL_SEC)
 let timer: ReturnType<typeof setInterval> | null = null
@@ -79,37 +100,42 @@ function startCountdown() {
   timer = setInterval(() => {
     secondsRemaining.value--
     if (secondsRemaining.value <= 0) {
-      fetchStatus(false)
+      fetchStatus(false, false)
       secondsRemaining.value = REFRESH_INTERVAL_SEC
     }
   }, 1000)
 }
 
-async function fetchStatus(isInitial = false) {
-  if (isInitial)
+async function fetchStatus(isInitial = false, includeLongRange = true) {
+  if (isInitial && !data.value)
     loading.value = true
   else isRefetching.value = true
   errorMsg.value = null
 
   try {
-    const [current, longRange] = await Promise.all([
-      $fetch<LansonAudioMonitoringResponse>('/api/monitoring/lanson-audio/overview', {
-        query: {
-          environment: 'production',
-          range: '24h',
-        },
-      }),
+    const current = await $fetch<LansonAudioMonitoringResponse>('/api/monitoring/lanson-audio/overview', {
+      query: {
+        environment: 'production',
+        range: '24h',
+      },
+    })
+    data.value = current
+    lastUpdatedIso.value = current.meta?.generatedAt || new Date().toISOString()
+    secondsRemaining.value = REFRESH_INTERVAL_SEC
+    loading.value = false
+
+    if (includeLongRange || !history.value) {
       $fetch<LansonAudioMonitoringResponse>('/api/monitoring/lanson-audio/overview', {
         query: {
           environment: 'production',
           range: '90d',
         },
-      }).catch(() => null),
-    ])
-    data.value = current
-    history.value = longRange
-    lastUpdated.value = new Date()
-    secondsRemaining.value = REFRESH_INTERVAL_SEC
+      })
+        .then((longRange) => {
+          history.value = longRange
+        })
+        .catch(() => {})
+    }
   }
   catch (err: any) {
     errorMsg.value = err?.message || 'Failed to retrieve status'
@@ -121,7 +147,8 @@ async function fetchStatus(isInitial = false) {
 }
 
 onMounted(() => {
-  fetchStatus(true)
+  if (!data.value)
+    fetchStatus(true, true)
   startCountdown()
 })
 
@@ -130,125 +157,23 @@ onUnmounted(() => {
     clearInterval(timer)
 })
 
-// Summary metrics (only the fields used by the public status view)
-const summary = computed(() => data.value?.summary ?? {
-  requests: 0,
-  serverErrors: 0,
-  upstreamConnectionFailures: 0,
-  readinessFailures: 0,
-})
+const statusWindowMinutes = computed(() => data.value?.meta?.statusWindowMinutes ?? 15)
 
-const serverAvailabilityPct = computed<number | null>(() => {
-  const s = data.value?.summary
-  if (!s)
-    return null
-  if (!s.requests)
-    return 100.0
-  const serverErrorRate = (s.serverErrors / s.requests) * 100
-  return Math.max(0, Math.min(100, +(100 - serverErrorRate).toFixed(2)))
-})
+const evaluatedServices = computed(() => buildEvaluatedServices(data.value, loading.value))
+const coreServices = computed(() => evaluatedServices.value.coreServices)
+const additionalServices = computed(() => evaluatedServices.value.additionalServices)
 
-// Overall System Status evaluation
-const overallStatus = computed<'operational' | 'degraded' | 'down' | 'unknown'>(() => {
-  if (!data.value)
-    return 'unknown'
-  const s = summary.value
-  const avail = serverAvailabilityPct.value ?? 100
-  if (s.serverErrors > 50 || s.upstreamConnectionFailures > 10 || avail < 90) {
-    return 'down'
-  }
-  if (s.serverErrors > 5 || s.upstreamConnectionFailures > 0 || s.readinessFailures > 0 || avail < 99) {
-    return 'degraded'
-  }
-  return 'operational'
-})
+const SERVICE_ICONS: Record<string, typeof AudioLines> = {
+  'realtime-streaming': AudioLines,
+  'batch-processing': FileAudio,
+  'api-gateway': Server,
+  'language-detection': Languages,
+  'audio-classification': Layers,
+}
 
-const statusConfig = computed(() => {
-  const isEn = currentLang.value === 'en'
-
-  if (loading.value) {
-    return {
-      title: isEn ? 'Checking service status…' : '正在检查服务状态…',
-      subtitle: isEn ? 'Checking the latest Lanson Live API service status.' : '正在获取 Lanson Live API 的最新服务状态。',
-      badge: isEn ? 'Checking' : '检查中',
-      cardBorder: 'border-border',
-      cardBg: 'from-muted/40 via-muted/10 to-transparent',
-      accentBar: 'bg-muted-foreground/30',
-      iconWrap: 'border-border bg-muted/50 text-muted-foreground',
-      text: 'text-muted-foreground',
-      dot: 'bg-muted-foreground',
-      icon: RefreshCw,
-    }
-  }
-
-  switch (overallStatus.value) {
-    case 'degraded':
-      return {
-        title: isEn ? 'Degraded Performance' : '部分服务性能降级',
-        subtitle: isEn
-          ? 'Some Lanson Live API capabilities are experiencing elevated latency or intermittent errors.'
-          : '部分 Lanson Live API 服务出现延迟升高或偶发波动。',
-        badge: isEn ? 'Degraded' : '性能降级',
-        cardBorder: 'border-amber-500/30 dark:border-amber-500/25',
-        cardBg: 'from-amber-500/[0.08] via-amber-500/[0.02] to-transparent dark:from-amber-500/[0.12] dark:via-amber-500/[0.03] dark:to-transparent',
-        accentBar: 'bg-amber-500',
-        iconWrap: 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400',
-        text: 'text-amber-600 dark:text-amber-400',
-        dot: 'bg-amber-500',
-        icon: AlertTriangle,
-      }
-    case 'down':
-      return {
-        title: isEn ? 'Major Service Outage' : '核心服务异常中断',
-        subtitle: isEn
-          ? 'Lanson Live API is experiencing a service disruption.'
-          : 'Lanson Live API 服务出现中断。',
-        badge: isEn ? 'Major Outage' : '服务异常',
-        cardBorder: 'border-rose-500/30 dark:border-rose-500/25',
-        cardBg: 'from-rose-500/[0.08] via-rose-500/[0.02] to-transparent dark:from-rose-500/[0.12] dark:via-rose-500/[0.03] dark:to-transparent',
-        accentBar: 'bg-rose-500',
-        iconWrap: 'border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400',
-        text: 'text-rose-600 dark:text-rose-400',
-        dot: 'bg-rose-500',
-        icon: XCircle,
-      }
-    case 'unknown':
-      return {
-        title: isEn ? 'Status Unavailable' : '状态暂不可用',
-        subtitle: isEn
-          ? 'Live operational telemetry cannot be reached right now.'
-          : '当前暂时无法获取实时监控状态。',
-        badge: isEn ? 'Unknown' : '未知',
-        cardBorder: 'border-border',
-        cardBg: 'from-muted/40 via-muted/10 to-transparent',
-        accentBar: 'bg-muted-foreground/40',
-        iconWrap: 'border-border bg-muted/50 text-muted-foreground',
-        text: 'text-muted-foreground',
-        dot: 'bg-muted-foreground',
-        icon: AlertTriangle,
-      }
-    default:
-      return {
-        title: isEn ? 'All Systems Operational' : '所有系统运行正常',
-        subtitle: isEn
-          ? 'Lanson Live API services and streaming pipelines are operating normally.'
-          : 'Lanson Live API 各项服务与流式语音链路均运行正常。',
-        badge: isEn ? 'Operational' : '正常运行',
-        cardBorder: 'border-emerald-500/30 dark:border-emerald-500/25',
-        cardBg: 'from-emerald-500/[0.07] via-emerald-500/[0.02] to-transparent dark:from-emerald-500/[0.11] dark:via-emerald-500/[0.03] dark:to-transparent',
-        accentBar: 'bg-emerald-500',
-        iconWrap: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-        text: 'text-emerald-600 dark:text-emerald-400',
-        dot: 'bg-emerald-500',
-        icon: CheckCircle2,
-      }
-  }
-})
-
-// Public-facing service health. Internal gateway lanes are mapped to the
-// capabilities customers actually consume; event counts, error totals and
-// internal lane names stay in the admin monitoring surface.
-type PublicServiceStatus = 'operational' | 'degraded' | 'down' | 'checking' | 'unknown'
+function serviceIcon(id: string) {
+  return SERVICE_ICONS[id] ?? Activity
+}
 
 const SERVICE_STATUS_META: Record<PublicServiceStatus, { en: string, zh: string, badge: string, dot: string }> = {
   operational: {
@@ -283,91 +208,104 @@ const SERVICE_STATUS_META: Record<PublicServiceStatus, { en: string, zh: string,
   },
 }
 
-const PUBLIC_SERVICES = [
-  {
-    id: 'realtime',
-    laneIds: ['realtime-ws'],
-    icon: AudioLines,
-    name: { en: 'Realtime Transcription', zh: '实时流式转录' },
-    description: { en: 'Live streaming speech-to-text over WebSocket', zh: '低延迟 WebSocket 实时流式语音转写' },
-  },
-  {
-    id: 'recorded',
-    laneIds: ['segment', 'offline', 'slice'],
-    icon: FileAudio,
-    name: { en: 'Recorded Transcription', zh: '录音文件转录' },
-    description: { en: 'Uploaded audio and batch transcription', zh: '上传音频分段与异步批量转写' },
-  },
-  {
-    id: 'language-detection',
-    laneIds: ['language-detection'],
-    icon: Languages,
-    name: { en: 'Language Detection', zh: '语种识别' },
-    description: { en: 'Automatic spoken language detection', zh: '自动检测与识别语音语种' },
-  },
-  {
-    id: 'classification',
-    laneIds: ['classification'],
-    icon: Layers,
-    name: { en: 'Audio Classification', zh: '音频分类' },
-    description: { en: 'Acoustic scene and content classification', zh: '声学场景与音频内容分类' },
-  },
-]
-
-function combineLaneStatus(statuses: LansonAudioLaneStatus[]): PublicServiceStatus {
-  if (statuses.includes('down'))
-    return 'down'
-  if (statuses.includes('degraded'))
-    return 'degraded'
-  // `idle` only means there was no traffic in the window; it is not a fault.
-  return 'operational'
+function serviceStatusMeta(status: PublicServiceStatus) {
+  return SERVICE_STATUS_META[status]
 }
 
-const publicServices = computed(() => {
-  const lanes = new Map((data.value?.lanes ?? []).map(lane => [lane.id, lane]))
-  return PUBLIC_SERVICES.map((service) => {
-    const statuses = service.laneIds
-      .map(id => lanes.get(id)?.status)
-      .filter((status): status is LansonAudioLaneStatus => Boolean(status))
-    const status: PublicServiceStatus = loading.value
-      ? 'checking'
-      : !data.value || !statuses.length
-          ? 'unknown'
-          : combineLaneStatus(statuses)
-    return {
-      ...service,
-      status,
-      statusMeta: SERVICE_STATUS_META[status],
-    }
-  })
-})
-
-const operationalServicesCount = computed(() =>
-  publicServices.value.filter(s => s.status === 'operational').length,
+const operationalCoreCount = computed(() =>
+  coreServices.value.filter(s => s.status === 'operational').length,
 )
 
+const overallStatus = computed<'operational' | 'degraded' | 'down' | 'unknown'>(() =>
+  evaluateOverallStatus(data.value, coreServices.value, additionalServices.value),
+)
+
+const statusConfig = computed(() => {
+  const isEn = currentLang.value === 'en'
+  const w = statusWindowMinutes.value
+
+  if (loading.value) {
+    return {
+      title: isEn ? 'Checking platform status…' : '正在检查平台状态…',
+      subtitle: isEn ? 'Fetching the latest Lanson Live API service status.' : '正在同步 Lanson Live API 最新服务状态。',
+      badge: isEn ? 'Checking' : '检查中',
+      cardBorder: 'border-border',
+      cardBg: 'from-muted/40 via-muted/10 to-transparent',
+      accentBar: 'bg-muted-foreground/30',
+      iconWrap: 'border-border bg-muted/50 text-muted-foreground',
+      text: 'text-muted-foreground',
+      dot: 'bg-muted-foreground',
+      icon: RefreshCw,
+    }
+  }
+
+  switch (overallStatus.value) {
+    case 'degraded':
+      return {
+        title: isEn ? 'Degraded Performance' : '部分服务性能降级',
+        subtitle: isEn
+          ? `One or more Lanson Live API services experienced degraded availability in the last ${w} minutes.`
+          : `最近 ${w} 分钟内部分 Lanson Live API 服务出现可用性波动。`,
+        badge: isEn ? 'Degraded' : '性能降级',
+        cardBorder: 'border-amber-500/30 dark:border-amber-500/25',
+        cardBg: 'from-amber-500/[0.08] via-amber-500/[0.02] to-transparent dark:from-amber-500/[0.12] dark:via-amber-500/[0.03] dark:to-transparent',
+        accentBar: 'bg-amber-500',
+        iconWrap: 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400',
+        text: 'text-amber-600 dark:text-amber-400',
+        dot: 'bg-amber-500',
+        icon: AlertTriangle,
+      }
+    case 'down':
+      return {
+        title: isEn ? 'Major Service Outage' : '核心服务异常中断',
+        subtitle: isEn
+          ? `Core Lanson Live API services are experiencing a disruption in the current ${w}-minute window.`
+          : `最近 ${w} 分钟内 Lanson Live API 核心服务出现可用性中断。`,
+        badge: isEn ? 'Major Outage' : '服务异常',
+        cardBorder: 'border-rose-500/30 dark:border-rose-500/25',
+        cardBg: 'from-rose-500/[0.08] via-rose-500/[0.02] to-transparent dark:from-rose-500/[0.12] dark:via-rose-500/[0.03] dark:to-transparent',
+        accentBar: 'bg-rose-500',
+        iconWrap: 'border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400',
+        text: 'text-rose-600 dark:text-rose-400',
+        dot: 'bg-rose-500',
+        icon: XCircle,
+      }
+    case 'unknown':
+      return {
+        title: isEn ? 'Status Unavailable' : '状态暂不可用',
+        subtitle: isEn
+          ? 'Live operational status cannot be reached right now.'
+          : '当前暂时无法获取实时服务状态。',
+        badge: isEn ? 'Unknown' : '未知',
+        cardBorder: 'border-border',
+        cardBg: 'from-muted/40 via-muted/10 to-transparent',
+        accentBar: 'bg-muted-foreground/40',
+        iconWrap: 'border-border bg-muted/50 text-muted-foreground',
+        text: 'text-muted-foreground',
+        dot: 'bg-muted-foreground',
+        icon: AlertTriangle,
+      }
+    default:
+      return {
+        title: isEn ? 'All Systems Operational' : '所有核心服务运行正常',
+        subtitle: isEn
+          ? 'All Lanson Live API core services and endpoints are operating normally.'
+          : 'Lanson Live API 所有核心服务与端点均运行正常。',
+        badge: isEn ? 'Operational' : '正常运行',
+        cardBorder: 'border-emerald-500/30 dark:border-emerald-500/25',
+        cardBg: 'from-emerald-500/[0.07] via-emerald-500/[0.02] to-transparent dark:from-emerald-500/[0.11] dark:via-emerald-500/[0.03] dark:to-transparent',
+        accentBar: 'bg-emerald-500',
+        iconWrap: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+        text: 'text-emerald-600 dark:text-emerald-400',
+        dot: 'bg-emerald-500',
+        icon: CheckCircle2,
+      }
+  }
+})
+
 // ---------------------------------------------------------------------------
-// Availability history strip
-//
-// The monitoring API exposes a request timeline for the transcription HTTP
-// endpoint only. We render exactly that and label it as such — we do not
-// fabricate per-service history for lanes the timeline does not cover.
+// Availability History (24h / 30d / 90d) — pure server availability (excl. 4xx)
 // ---------------------------------------------------------------------------
-
-type BarStatus = 'operational' | 'degraded' | 'down' | 'nodata'
-
-interface HistoryBar {
-  key: string
-  label: string
-  requests: number
-  success: number
-  serverErrors: number
-  uptimePct: number | null
-  status: BarStatus
-}
-
-type TimelineRow = LansonAudioMonitoringResponse['series']['requestTimeline'][number]
-
 const BAR_CLASS: Record<BarStatus, string> = {
   operational: 'bg-emerald-500 dark:bg-emerald-500',
   degraded: 'bg-amber-500 dark:bg-amber-500',
@@ -386,7 +324,12 @@ const BAR_STATUS_LABEL: Record<BarStatus, { en: string, zh: string }> = {
   operational: { en: 'Operational', zh: '正常' },
   degraded: { en: 'Degraded', zh: '降级' },
   down: { en: 'Outage', zh: '中断' },
-  nodata: { en: 'No traffic', zh: '无请求数据' },
+  nodata: { en: 'No data', zh: '无数据' },
+}
+
+function barStatusLabel(status: BarStatus): string {
+  const meta = BAR_STATUS_LABEL[status]
+  return currentLang.value === 'en' ? meta.en : meta.zh
 }
 
 const historyRange = ref<'24h' | '30d' | '90d'>('30d')
@@ -396,29 +339,6 @@ const rangeOptions = [
   { value: '30d' as const, labelEn: '30d', labelZh: '30天' },
   { value: '90d' as const, labelEn: '90d', labelZh: '90天' },
 ]
-
-function classifyBar(requests: number, serverErrors: number): BarStatus {
-  if (requests <= 0)
-    return 'nodata'
-  const errorRate = serverErrors / requests
-  if (errorRate >= 0.05)
-    return 'down'
-  if (serverErrors > 0)
-    return 'degraded'
-  return 'operational'
-}
-
-function makeBar(key: string, label: string, requests: number, success: number, serverErrors: number): HistoryBar {
-  return {
-    key,
-    label,
-    requests,
-    success,
-    serverErrors,
-    uptimePct: requests > 0 ? +((success / requests) * 100).toFixed(2) : null,
-    status: classifyBar(requests, serverErrors),
-  }
-}
 
 function formatDayLabel(ms: number): string {
   return new Intl.DateTimeFormat(currentLang.value === 'en' ? 'en-US' : 'zh-CN', {
@@ -433,103 +353,54 @@ function formatHourLabel(ms: number): string {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
+    timeZone: 'UTC',
   }).format(new Date(ms))
-}
-
-function buildDailyBars(rows: TimelineRow[], days: number): HistoryBar[] {
-  const byDay = new Map<string, { requests: number, success: number, serverErrors: number }>()
-  for (const row of rows) {
-    const ts = Date.parse(row.ts)
-    if (!Number.isFinite(ts))
-      continue
-    const key = new Date(ts).toISOString().slice(0, 10)
-    const agg = byDay.get(key) ?? { requests: 0, success: 0, serverErrors: 0 }
-    agg.requests += row.requests
-    agg.success += row.success
-    agg.serverErrors += row.serverErrors
-    byDay.set(key, agg)
-  }
-
-  const now = new Date()
-  const endUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-  const bars: HistoryBar[] = []
-  for (let i = days - 1; i >= 0; i--) {
-    const ms = endUtc - i * 86_400_000
-    const key = new Date(ms).toISOString().slice(0, 10)
-    const agg = byDay.get(key)
-    bars.push(makeBar(key, formatDayLabel(ms), agg?.requests ?? 0, agg?.success ?? 0, agg?.serverErrors ?? 0))
-  }
-  return bars
-}
-
-function buildHourlyBars(rows: TimelineRow[], hours: number): HistoryBar[] {
-  const byHour = new Map<number, { requests: number, success: number, serverErrors: number }>()
-  for (const row of rows) {
-    const ts = Date.parse(row.ts)
-    if (!Number.isFinite(ts))
-      continue
-    const key = Math.floor(ts / 3_600_000)
-    const agg = byHour.get(key) ?? { requests: 0, success: 0, serverErrors: 0 }
-    agg.requests += row.requests
-    agg.success += row.success
-    agg.serverErrors += row.serverErrors
-    byHour.set(key, agg)
-  }
-
-  const nowHour = Math.floor(Date.now() / 3_600_000)
-  const bars: HistoryBar[] = []
-  for (let i = hours - 1; i >= 0; i--) {
-    const key = nowHour - i
-    const agg = byHour.get(key)
-    bars.push(makeBar(String(key), formatHourLabel(key * 3_600_000), agg?.requests ?? 0, agg?.success ?? 0, agg?.serverErrors ?? 0))
-  }
-  return bars
 }
 
 const historyBars = computed<HistoryBar[]>(() => {
   if (historyRange.value === '24h')
-    return buildHourlyBars(data.value?.series.requestTimeline ?? [], 24)
+    return buildHourlyBars(data.value?.series.requestTimeline ?? [], 24, formatHourLabel)
   const days = historyRange.value === '30d' ? 30 : 90
-  return buildDailyBars(history.value?.series.requestTimeline ?? [], days)
+  return buildDailyBars(history.value?.series.requestTimeline ?? [], days, formatDayLabel)
 })
 
-const historyUptime = computed<number | null>(() => {
+const historyAvailability = computed<number | null>(() => {
   const bars = historyBars.value.filter(bar => bar.requests > 0)
   if (!bars.length)
     return null
   const requests = bars.reduce((sum, bar) => sum + bar.requests, 0)
-  const success = bars.reduce((sum, bar) => sum + bar.success, 0)
-  return requests > 0 ? +((success / requests) * 100).toFixed(2) : null
+  const serverErrors = bars.reduce((sum, bar) => sum + bar.serverErrors, 0)
+  return computeServerAvailabilityPct(requests, serverErrors)
 })
 
-const historyUptimeLabel = computed(() =>
-  historyUptime.value === null ? '—' : `${historyUptime.value.toFixed(2)}%`,
+const historyAvailabilityLabel = computed(() =>
+  historyAvailability.value === null ? '—' : `${historyAvailability.value.toFixed(2)}%`,
 )
 
 const historyRangeLabel = computed(() => {
   const isEn = currentLang.value === 'en'
   if (historyRange.value === '24h')
-    return isEn ? '24-hour uptime' : '24 小时可用率'
+    return isEn ? '24h availability' : '24 小时可用率'
   if (historyRange.value === '30d')
-    return isEn ? '30-day uptime' : '30 天可用率'
-  return isEn ? '90-day uptime' : '90 天可用率'
+    return isEn ? '30d availability' : '30 天可用率'
+  return isEn ? '90d availability' : '90 天可用率'
 })
 
 const historyDescription = computed(() => {
   const isEn = currentLang.value === 'en'
   if (historyRange.value === '24h') {
     return isEn
-      ? 'Hourly success rate of the transcription API over the last 24 hours.'
-      : '过去 24 小时转写 API 按小时统计的请求成功率。'
+      ? 'Hourly API availability over the last 24 hours (excludes client 4xx errors).'
+      : '过去 24 小时按小时统计的 API 服务端可用率（已排除客户端 4xx 错误）。'
   }
   if (historyRange.value === '30d') {
     return isEn
-      ? 'Daily success rate of the transcription API over the last 30 days.'
-      : '过去 30 天转写 API 按天统计的请求成功率。'
+      ? 'Daily API availability over the last 30 days (excludes client 4xx errors).'
+      : '过去 30 天按天统计的 API 服务端可用率（已排除客户端 4xx 错误）。'
   }
   return isEn
-    ? 'Daily success rate of the transcription API over the last 90 days.'
-    : '过去 90 天转写 API 按天统计的请求成功率。'
+    ? 'Daily API availability over the last 90 days (excludes client 4xx errors).'
+    : '过去 90 天按天统计的 API 服务端可用率（已排除客户端 4xx 错误）。'
 })
 
 const axisStartLabel = computed(() => historyBars.value[0]?.label ?? '')
@@ -545,8 +416,7 @@ const hoveredBar = computed(() => historyBars.value[hoveredIndex.value] ?? null)
 const hoveredStatusLabel = computed(() => {
   if (!hoveredBar.value)
     return ''
-  const meta = BAR_STATUS_LABEL[hoveredBar.value.status]
-  return currentLang.value === 'en' ? meta.en : meta.zh
+  return barStatusLabel(hoveredBar.value.status)
 })
 
 const tooltipLeft = computed(() => {
@@ -566,36 +436,6 @@ const legendItems = computed(() => {
     { key: 'nodata', class: BAR_CLASS.nodata, label: isEn ? 'No data' : '无数据' },
   ]
 })
-
-const freshness = computed(() => data.value?.freshness ?? null)
-const queryHealth = computed(() => data.value?.queryHealth ?? null)
-
-function normalizeClientTimestamp(value: unknown): string | null {
-  if (typeof value === 'string' && !/^\d+$/.test(value))
-    return value
-  const numeric = Number(value)
-  if (!Number.isFinite(numeric) || numeric <= 0)
-    return null
-  const ms = numeric > 1e15 ? numeric / 1e6 : numeric
-  const date = new Date(ms)
-  return Number.isNaN(date.getTime()) ? null : date.toISOString()
-}
-
-function formatRelativeTime(value: string | null): string {
-  if (!value)
-    return currentLang.value === 'en' ? 'no data' : '暂无数据'
-  const ts = Date.parse(value)
-  if (!Number.isFinite(ts))
-    return value
-  const diffSec = Math.max(0, Math.round((Date.now() - ts) / 1000))
-  if (diffSec < 60)
-    return currentLang.value === 'en' ? `${diffSec}s ago` : `${diffSec} 秒前`
-  if (diffSec < 3600)
-    return currentLang.value === 'en' ? `${Math.round(diffSec / 60)}m ago` : `${Math.round(diffSec / 60)} 分钟前`
-  if (diffSec < 86400)
-    return currentLang.value === 'en' ? `${Math.round(diffSec / 3600)}h ago` : `${Math.round(diffSec / 3600)} 小时前`
-  return currentLang.value === 'en' ? `${Math.round(diffSec / 86400)}d ago` : `${Math.round(diffSec / 86400)} 天前`
-}
 
 // Subscribe Dialog State
 const isSubscribeOpen = ref(false)
@@ -626,58 +466,20 @@ function handleSubscribe() {
 }
 
 const formattedLastUpdated = computed(() => {
-  return lastUpdated.value.toLocaleTimeString(currentLang.value === 'en' ? 'en-US' : 'zh-CN', {
+  if (!lastUpdatedIso.value)
+    return '—'
+  const date = new Date(lastUpdatedIso.value)
+  if (Number.isNaN(date.getTime()))
+    return '—'
+  const time = date.toLocaleTimeString(currentLang.value === 'en' ? 'en-US' : 'zh-CN', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
     hour12: false,
+    timeZone: 'UTC',
   })
+  return `${time} UTC`
 })
-
-// Real incidents from the monitoring API (rolling window), described in
-// customer-facing language. Raw event names, HTTP codes and upstream details
-// stay in the admin monitoring surface.
-const INCIDENT_COPY: Record<string, { label: { en: string, zh: string }, description: { en: string, zh: string } }> = {
-  'gateway.request.failed': {
-    label: { en: 'Request errors', zh: '请求异常' },
-    description: { en: 'Some API requests did not complete successfully.', zh: '部分 API 请求未能成功完成。' },
-  },
-  'gateway.session.backpressure_detected': {
-    label: { en: 'Realtime connection instability', zh: '实时连接不稳定' },
-    description: { en: 'Some realtime sessions experienced temporary buffering.', zh: '部分实时会话出现短暂缓冲。' },
-  },
-  'gateway.readiness.degraded': {
-    label: { en: 'Service health check degraded', zh: '服务健康检查降级' },
-    description: { en: 'A service health check reported reduced capacity.', zh: '服务健康检查报告容量下降。' },
-  },
-  'gateway.readiness.checked': {
-    label: { en: 'Service health check failed', zh: '服务健康检查未通过' },
-    description: { en: 'A service health check did not pass.', zh: '一次服务健康检查未通过。' },
-  },
-  'gateway.session.closed': {
-    label: { en: 'Realtime session interrupted', zh: '实时会话中断' },
-    description: { en: 'A realtime session closed unexpectedly.', zh: '一个实时会话意外关闭。' },
-  },
-}
-
-function incidentCopy(eventName: string) {
-  return INCIDENT_COPY[eventName] ?? {
-    label: { en: 'Service event', zh: '服务事件' },
-    description: { en: 'A service event was recorded.', zh: '记录到一次服务事件。' },
-  }
-}
-
-const incidents = computed(() => (data.value?.incidents ?? []).map((row, index) => {
-  const eventName = String(row.event_name ?? '')
-  const time = normalizeClientTimestamp(row._time)
-  const copy = incidentCopy(eventName)
-  return {
-    id: `${String(row.request_id ?? row.session_id ?? eventName)}-${index}`,
-    label: currentLang.value === 'en' ? copy.label.en : copy.label.zh,
-    description: currentLang.value === 'en' ? copy.description.en : copy.description.zh,
-    timeLabel: formatRelativeTime(time),
-  }
-}))
 </script>
 
 <template>
@@ -699,12 +501,12 @@ const incidents = computed(() => (data.value?.incidents ?? []).map((row, index) 
 
             <div class="space-y-1.5">
               <h1 class="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl lg:text-4xl">
-                {{ currentLang === 'en' ? 'Lanson Live API Status' : 'Lanson Live API 服务状态' }}
+                {{ currentLang === 'en' ? 'Platform Status' : 'Lanson Live API 平台状态' }}
               </h1>
               <p class="max-w-xl text-sm text-muted-foreground sm:text-base">
                 {{ currentLang === 'en'
-                  ? 'Current operational status and availability for Lanson Live API.'
-                  : 'Lanson Live API 的实时运行状态与可用性监控。'
+                  ? 'Current operational status and historical availability for Lanson Live API.'
+                  : 'Lanson Live API 实时运行状态与历史可用率。'
                 }}
               </p>
             </div>
@@ -712,7 +514,6 @@ const incidents = computed(() => (data.value?.incidents ?? []).map((row, index) 
 
           <!-- Header Actions -->
           <div class="flex flex-wrap items-center gap-2 sm:shrink-0">
-            <!-- Subscribe Modal -->
             <Dialog v-model:open="isSubscribeOpen">
               <DialogTrigger as-child>
                 <Button size="sm" class="h-8 rounded-lg gap-1.5 px-3 text-xs font-medium shadow-2xs">
@@ -728,7 +529,7 @@ const incidents = computed(() => (data.value?.incidents ?? []).map((row, index) 
                   </DialogTitle>
                   <DialogDescription class="text-xs leading-relaxed">
                     {{ currentLang === 'en'
-                      ? 'Get notified immediately whenever major incident updates or scheduled maintenance occur.'
+                      ? 'Get notified immediately whenever major status changes or scheduled maintenance occur.'
                       : '在服务发生重大变更、维护或异常波动时，实时获取状态推送。'
                     }}
                   </DialogDescription>
@@ -781,7 +582,7 @@ const incidents = computed(() => (data.value?.incidents ?? []).map((row, index) 
               size="sm"
               class="h-8 rounded-lg gap-1.5 px-2.5 text-xs shadow-2xs"
               :disabled="isRefetching"
-              @click="fetchStatus(false)"
+              @click="fetchStatus(false, true)"
             >
               <RefreshCw class="size-3.5 text-muted-foreground" :class="isRefetching ? 'animate-spin text-foreground' : ''" />
               <span>{{ currentLang === 'en' ? 'Refresh' : '刷新' }}</span>
@@ -858,12 +659,12 @@ const incidents = computed(() => (data.value?.incidents ?? []).map((row, index) 
               <ShieldCheck class="size-3.5 shrink-0" :class="loading ? 'text-muted-foreground' : 'text-emerald-500'" />
               <span class="font-mono text-[11px]">
                 <template v-if="loading">
-                  {{ currentLang === 'en' ? 'Syncing telemetry…' : '正在同步遥测…' }}
+                  {{ currentLang === 'en' ? 'Checking status…' : '正在同步状态…' }}
                 </template>
                 <template v-else>
                   {{ currentLang === 'en'
-                    ? `${operationalServicesCount}/${publicServices.length} services healthy`
-                    : `${operationalServicesCount}/${publicServices.length} 项服务正常`
+                    ? `${operationalCoreCount}/${coreServices.length} core services operational`
+                    : `${operationalCoreCount}/${coreServices.length} 项核心服务正常`
                   }}
                 </template>
               </span>
@@ -876,89 +677,157 @@ const incidents = computed(() => (data.value?.incidents ?? []).map((row, index) 
         </div>
       </Card>
 
-      <!-- 2. Capabilities / Services Status -->
+      <!-- 2. Core Services -->
       <section class="space-y-3">
         <div class="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
           <h2 class="text-base font-semibold tracking-tight text-foreground sm:text-lg">
-            {{ currentLang === 'en' ? 'Services' : '核心服务状态' }}
+            {{ currentLang === 'en' ? 'Core Services' : '核心服务 (Core Services)' }}
           </h2>
           <p class="text-xs text-muted-foreground">
             {{ currentLang === 'en'
-              ? 'Real-time operational health over the last 24 hours.'
-              : '基于过去 24 小时流量的实时服务健康度。'
+              ? `Real-time operational health over the last ${statusWindowMinutes} minutes.`
+              : `基于最近 ${statusWindowMinutes} 分钟实时状态判定。`
             }}
           </p>
         </div>
 
         <Card class="py-0 gap-0 divide-y divide-border/70 overflow-hidden shadow-xs">
           <div
-            v-for="service in publicServices"
+            v-for="service in coreServices"
             :key="service.id"
             class="group flex items-start gap-2.5 px-3.5 py-3.5 transition-colors hover:bg-muted/25 sm:items-center sm:gap-4 sm:px-5 sm:py-4"
           >
             <div class="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg border border-border/70 bg-muted/40 text-muted-foreground transition-colors group-hover:border-border group-hover:text-foreground sm:mt-0 sm:size-10">
-              <component :is="service.icon" class="size-4" />
+              <component :is="serviceIcon(service.id)" class="size-4" />
             </div>
 
-            <div class="min-w-0 flex-1 space-y-0.5 sm:flex sm:items-center sm:justify-between sm:gap-4 sm:space-y-0">
-              <div class="min-w-0 space-y-0.5">
-                <div class="flex items-center justify-between gap-2 sm:justify-start">
-                  <span class="whitespace-nowrap text-sm font-medium text-foreground">
-                    {{ currentLang === 'en' ? service.name.en : service.name.zh }}
-                  </span>
+            <div class="min-w-0 flex-1 space-y-1 sm:flex sm:items-center sm:justify-between sm:gap-4 sm:space-y-0">
+              <div class="min-w-0 space-y-1">
+                <div class="flex flex-wrap items-center justify-between gap-2 sm:justify-start">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="whitespace-nowrap text-sm font-medium text-foreground">
+                      {{ currentLang === 'en' ? service.name.en : service.name.zh }}
+                    </span>
+                    <span class="inline-flex items-center rounded-md border border-border/70 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium text-foreground/80">
+                      {{ service.brandTag }}
+                    </span>
+                  </div>
+
                   <Badge
                     variant="outline"
                     class="shrink-0 gap-1.5 rounded-full px-2 py-0.5 font-mono text-[11px] font-medium sm:hidden"
-                    :class="service.statusMeta.badge"
+                    :class="serviceStatusMeta(service.status).badge"
                   >
                     <span class="relative flex size-1.5">
                       <span
                         v-if="service.status === 'operational'"
                         class="absolute inline-flex size-full rounded-full opacity-40"
-                        :class="service.statusMeta.dot"
+                        :class="serviceStatusMeta(service.status).dot"
                       />
-                      <span class="relative inline-flex size-1.5 rounded-full" :class="service.statusMeta.dot" />
+                      <span class="relative inline-flex size-1.5 rounded-full" :class="serviceStatusMeta(service.status).dot" />
                     </span>
-                    <span>{{ currentLang === 'en' ? service.statusMeta.en : service.statusMeta.zh }}</span>
+                    <span>{{ currentLang === 'en' ? serviceStatusMeta(service.status).en : serviceStatusMeta(service.status).zh }}</span>
                   </Badge>
                 </div>
+
                 <p class="text-xs text-muted-foreground leading-relaxed">
                   {{ currentLang === 'en' ? service.description.en : service.description.zh }}
+                </p>
+
+                <p class="no-scrollbar overflow-x-auto whitespace-nowrap font-mono text-[11px] text-muted-foreground/75">
+                  {{ service.endpoint }}
                 </p>
               </div>
 
               <Badge
                 variant="outline"
                 class="hidden shrink-0 gap-1.5 rounded-full px-2.5 py-0.5 font-mono text-[11px] font-medium sm:inline-flex"
-                :class="service.statusMeta.badge"
+                :class="serviceStatusMeta(service.status).badge"
               >
                 <span class="relative flex size-1.5">
                   <span
                     v-if="service.status === 'operational'"
                     class="absolute inline-flex size-full rounded-full opacity-40"
-                    :class="service.statusMeta.dot"
+                    :class="serviceStatusMeta(service.status).dot"
                   />
-                  <span class="relative inline-flex size-1.5 rounded-full" :class="service.statusMeta.dot" />
+                  <span class="relative inline-flex size-1.5 rounded-full" :class="serviceStatusMeta(service.status).dot" />
                 </span>
-                <span>{{ currentLang === 'en' ? service.statusMeta.en : service.statusMeta.zh }}</span>
+                <span>{{ currentLang === 'en' ? serviceStatusMeta(service.status).en : serviceStatusMeta(service.status).zh }}</span>
               </Badge>
             </div>
           </div>
         </Card>
       </section>
 
-      <!-- 3. Availability History -->
+      <!-- 3. Additional Capabilities -->
+      <section class="space-y-3">
+        <div class="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+          <h2 class="text-sm font-semibold tracking-tight text-foreground sm:text-base">
+            {{ currentLang === 'en' ? 'Additional Capabilities' : '辅助能力 (Additional Capabilities)' }}
+          </h2>
+          <p class="text-xs text-muted-foreground">
+            {{ currentLang === 'en'
+              ? 'Independent endpoints with isolated fault domains.'
+              : '具有独立故障域的辅助能力端点。'
+            }}
+          </p>
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-2">
+          <Card
+            v-for="service in additionalServices"
+            :key="service.id"
+            class="py-0 shadow-2xs transition-colors hover:bg-muted/20"
+          >
+            <div class="flex items-start justify-between gap-3 p-3.5 sm:p-4">
+              <div class="flex min-w-0 items-start gap-3">
+                <div class="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg border border-border/70 bg-muted/40 text-muted-foreground">
+                  <component :is="serviceIcon(service.id)" class="size-4" />
+                </div>
+                <div class="min-w-0 space-y-1">
+                  <p class="text-sm font-medium text-foreground">
+                    {{ currentLang === 'en' ? service.name.en : service.name.zh }}
+                  </p>
+                  <p class="text-xs text-muted-foreground leading-relaxed">
+                    {{ currentLang === 'en' ? service.description.en : service.description.zh }}
+                  </p>
+                  <p class="no-scrollbar overflow-x-auto whitespace-nowrap font-mono text-[10px] text-muted-foreground/75">
+                    {{ service.endpoint }}
+                  </p>
+                </div>
+              </div>
+
+              <Badge
+                variant="outline"
+                class="shrink-0 gap-1.5 rounded-full px-2 py-0.5 font-mono text-[11px] font-medium"
+                :class="serviceStatusMeta(service.status).badge"
+              >
+                <span class="relative flex size-1.5">
+                  <span
+                    v-if="service.status === 'operational'"
+                    class="absolute inline-flex size-full rounded-full opacity-40"
+                    :class="serviceStatusMeta(service.status).dot"
+                  />
+                  <span class="relative inline-flex size-1.5 rounded-full" :class="serviceStatusMeta(service.status).dot" />
+                </span>
+                <span>{{ currentLang === 'en' ? serviceStatusMeta(service.status).en : serviceStatusMeta(service.status).zh }}</span>
+              </Badge>
+            </div>
+          </Card>
+        </div>
+      </section>
+
+      <!-- 4. Availability History (24h / 30d / 90d) -->
       <Card class="py-0 shadow-xs">
         <div class="space-y-4 p-4 sm:p-6">
-          <!-- Card Header with Uptime Stat & Range Switcher -->
           <div class="space-y-1.5">
             <div class="flex items-center justify-between gap-2">
               <div class="flex min-w-0 items-center gap-2">
                 <h2 class="whitespace-nowrap text-base font-semibold tracking-tight text-foreground">
-                  {{ currentLang === 'en' ? 'Availability History' : '可用性历史' }}
+                  {{ currentLang === 'en' ? 'Availability History' : '可用率历史' }}
                 </h2>
                 <span class="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-500/25 bg-emerald-500/[0.06] px-1.5 sm:px-2 py-0.5 font-mono text-[11px] sm:text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                  {{ historyUptimeLabel }}
+                  {{ historyAvailabilityLabel }}
                   <span class="hidden font-sans text-[11px] font-normal text-muted-foreground sm:inline">
                     {{ historyRangeLabel }}
                   </span>
@@ -979,7 +848,7 @@ const incidents = computed(() => (data.value?.incidents ?? []).map((row, index) 
               </div>
             </div>
 
-            <p class="text-xs sm:text-sm text-muted-foreground">
+            <p class="text-xs sm:text-sm text-muted-foreground leading-relaxed">
               {{ historyDescription }}
             </p>
           </div>
@@ -995,7 +864,7 @@ const incidents = computed(() => (data.value?.incidents ?? []).map((row, index) 
                   v-for="(bar, index) in historyBars"
                   :key="bar.key"
                   type="button"
-                  :aria-label="`${bar.label}: ${hoveredStatusLabel}`"
+                  :aria-label="`${bar.label}: ${barStatusLabel(bar.status)}`"
                   class="min-w-0 flex-1 cursor-pointer transition-all duration-150 focus:outline-none"
                   :class="[
                     BAR_CLASS[bar.status],
@@ -1012,7 +881,7 @@ const incidents = computed(() => (data.value?.incidents ?? []).map((row, index) 
                 />
               </div>
 
-              <!-- Desktop Floating Tooltip -->
+              <!-- Desktop Floating Tooltip (availability only, no internal volume/latency) -->
               <div
                 v-if="hoveredBar"
                 class="pointer-events-none hidden sm:block absolute bottom-full z-20 mb-2.5 -translate-x-1/2 whitespace-nowrap rounded-lg border border-border/80 bg-popover/95 px-3 py-2 text-xs shadow-lg backdrop-blur-xs"
@@ -1024,8 +893,9 @@ const incidents = computed(() => (data.value?.incidents ?? []).map((row, index) 
                   <span class="text-muted-foreground">·</span>
                   <span>{{ hoveredStatusLabel }}</span>
                 </div>
-                <div v-if="hoveredBar.uptimePct !== null" class="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                  {{ currentLang === 'en' ? 'Success rate:' : '请求成功率:' }} {{ hoveredBar.uptimePct.toFixed(2) }}%
+                <div v-if="hoveredBar.availabilityPct !== null" class="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                  {{ currentLang === 'en' ? 'Availability:' : '可用率:' }}
+                  <span class="text-foreground">{{ hoveredBar.availabilityPct.toFixed(2) }}%</span>
                 </div>
               </div>
             </div>
@@ -1034,7 +904,6 @@ const incidents = computed(() => (data.value?.incidents ?? []).map((row, index) 
             <div class="flex items-center justify-between gap-2 pt-0.5 font-mono text-[11px] text-muted-foreground">
               <span>{{ axisStartLabel }}</span>
 
-              <!-- Inline active bar details (especially helpful on mobile touch) -->
               <div
                 v-if="hoveredBar"
                 class="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-muted/50 px-2.5 py-0.5 text-[11px] text-foreground sm:hidden"
@@ -1043,8 +912,8 @@ const incidents = computed(() => (data.value?.incidents ?? []).map((row, index) 
                 <span class="font-medium">{{ hoveredBar.label }}</span>
                 <span class="text-muted-foreground">·</span>
                 <span>{{ hoveredStatusLabel }}</span>
-                <span v-if="hoveredBar.uptimePct !== null" class="text-muted-foreground">
-                  ({{ hoveredBar.uptimePct.toFixed(2) }}%)
+                <span v-if="hoveredBar.availabilityPct !== null" class="text-muted-foreground">
+                  ({{ hoveredBar.availabilityPct.toFixed(2) }}%)
                 </span>
               </div>
               <div v-else class="hidden h-px flex-1 bg-border/50 mx-3 sm:block" />
@@ -1062,118 +931,17 @@ const incidents = computed(() => (data.value?.incidents ?? []).map((row, index) 
               </span>
             </div>
             <span class="font-mono text-[11px] text-muted-foreground/80">
-              {{ currentLang === 'en' ? 'UTC' : 'UTC 时间' }}
+              {{ currentLang === 'en' ? 'UTC · Excludes client 4xx errors' : 'UTC · 已排除客户端 4xx 错误' }}
             </span>
           </div>
         </div>
       </Card>
 
-      <!-- 4. Recent Incidents (real events) -->
-      <section class="space-y-3">
-        <div class="flex items-start justify-between gap-4 sm:items-center">
-          <div class="space-y-0.5">
-            <div class="flex items-center gap-2">
-              <h2 class="text-base font-semibold tracking-tight text-foreground sm:text-lg">
-                {{ currentLang === 'en' ? 'Recent Incidents' : '近期异常事件' }}
-              </h2>
-              <Badge variant="secondary" class="h-5 rounded-full px-2 font-mono text-[11px]">
-                {{ incidents.length }}
-              </Badge>
-            </div>
-            <p class="text-xs text-muted-foreground">
-              {{ currentLang === 'en'
-                ? 'Service events recorded in the last 24 hours.'
-                : '过去 24 小时记录的服务事件。'
-              }}
-            </p>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            class="shrink-0 text-xs text-muted-foreground hover:text-foreground font-mono gap-1 h-7 px-2"
-            @click="isIncidentsOpen = !isIncidentsOpen"
-          >
-            <span>{{ isIncidentsOpen ? (currentLang === 'en' ? 'Collapse' : '收起') : (currentLang === 'en' ? 'Expand' : '展开') }}</span>
-            <ChevronDown class="size-3.5 transition-transform duration-200" :class="isIncidentsOpen ? '' : '-rotate-90'" />
-          </Button>
-        </div>
-
-        <div v-show="isIncidentsOpen">
-          <Card v-if="incidents.length" class="py-0 gap-0 divide-y divide-border/70 overflow-hidden shadow-xs">
-            <div
-              v-for="incident in incidents"
-              :key="incident.id"
-              class="flex gap-3.5 p-4 sm:p-5"
-            >
-              <div class="mt-1 flex flex-col items-center">
-                <span class="size-2.5 shrink-0 rounded-full bg-amber-500 ring-4 ring-amber-500/15" />
-                <span class="mt-1.5 w-px flex-1 bg-border" />
-              </div>
-
-              <div class="min-w-0 flex-1 space-y-1">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                  <h4 class="text-sm font-medium text-foreground">
-                    {{ incident.label }}
-                  </h4>
-                  <span class="shrink-0 rounded-md bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-                    {{ incident.timeLabel }}
-                  </span>
-                </div>
-                <p class="text-xs text-muted-foreground leading-relaxed">
-                  {{ incident.description }}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card v-else class="py-8 sm:py-10 px-4 text-center shadow-xs">
-            <div class="mx-auto flex flex-col items-center gap-2.5 max-w-sm">
-              <div class="grid size-10 place-items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 class="size-5" />
-              </div>
-              <div class="space-y-1">
-                <p class="text-sm font-medium text-foreground">
-                  {{ currentLang === 'en' ? 'No incidents reported' : '未记录到异常事件' }}
-                </p>
-                <p class="text-xs text-muted-foreground">
-                  {{ currentLang === 'en'
-                    ? 'No service disruptions or abnormal events in the last 24 hours.'
-                    : '过去 24 小时内各项服务均平稳运行，无异常事件记录。'
-                  }}
-                </p>
-              </div>
-            </div>
-          </Card>
-        </div>
-      </section>
-
       <!-- 5. Status Footer Meta -->
       <div class="pt-4 border-t border-border/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-muted-foreground">
-        <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2 sm:flex-wrap">
-          <div class="inline-flex items-center gap-1.5 font-medium text-foreground">
-            <Waves class="size-3.5 text-primary" />
-            <span>Lanson Live API</span>
-          </div>
-          <div v-if="freshness || (queryHealth && queryHealth.degraded)" class="flex items-center gap-2 flex-wrap">
-            <span v-if="freshness" class="hidden text-border sm:inline">·</span>
-            <span v-if="freshness" class="font-mono text-[11px]">
-              {{ currentLang === 'en' ? 'Latest telemetry:' : '最新遥测数据:' }} {{ formatRelativeTime(freshness.latestEventAt) }}
-            </span>
-            <Badge
-              v-if="freshness?.isStale"
-              variant="outline"
-              class="text-[10px] font-mono border-amber-500/30 text-amber-600 dark:text-amber-400"
-            >
-              {{ currentLang === 'en' ? 'stale' : '数据滞后' }}
-            </Badge>
-            <Badge
-              v-if="queryHealth && queryHealth.degraded"
-              variant="outline"
-              class="text-[10px] font-mono border-amber-500/30 text-amber-600 dark:text-amber-400"
-            >
-              {{ currentLang === 'en' ? 'partial data' : '部分数据缺失' }}
-            </Badge>
-          </div>
+        <div class="inline-flex items-center gap-1.5 font-medium text-foreground">
+          <Waves class="size-3.5 text-primary" />
+          <span>Lanson Live API</span>
         </div>
 
         <div class="flex items-center gap-4 font-mono text-[11px]">

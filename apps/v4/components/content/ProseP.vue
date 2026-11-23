@@ -8,7 +8,7 @@ const props = defineProps<{
 </script>
 
 <template>
-  <p :class="cn('leading-relaxed [&:not(:first-child)]:mt-6', props.class)">
+  <p :class="cn('leading-[var(--doc-leading-body)] [&:not(:first-child)]:mt-[var(--doc-space-block)]', props.class)">
     <slot />
   </p>
 </template>

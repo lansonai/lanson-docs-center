@@ -3,30 +3,50 @@ export type MonitoringEnvironment = 'production' | 'non-production'
 
 export type LansonAudioLaneStatus = 'healthy' | 'degraded' | 'down' | 'idle'
 
+export interface LansonAudioLaneRecent {
+  count: number
+  success: number
+  errors: number
+  serverErrors?: number
+}
+
 /**
- * 一条业务链路的健康判定（HTTP 分段 / 实时 WS / 离线 / 切片 / 语言探测 / 分类）。
- * idle = 窗口内无流量，不代表故障；latestSuccessAt 是其健康证据。
+ * Health evaluation for a single gateway lane (`segment`, `realtime-ws`, `offline`,
+ * `language-detection`, `classification`).
+ * `idle` means no traffic in the evaluation window (not a fault); `latestSuccessAt`
+ * and endpoint probes provide health evidence.
  */
 export interface LansonAudioLaneHealth {
   id: string
   name: string
+  /** Current status evaluated over `meta.statusWindowMinutes` (5-15m) + idle probe. */
   status: LansonAudioLaneStatus
-  /** 窗口内请求 / 任务 / 会话数（0 = 空闲） */
+  /** Request / job / session count across the selected `range`. */
   count: number
   success: number
   errors: number
   p95Ms: number | null
   latestSuccessAt: string | null
-  /** 链路专属补充说明（如离线"完成 3 / 失败 0"） */
+  /** Recent short-window counts driving current operational status. */
+  recent?: LansonAudioLaneRecent
+  /** Lane-specific metadata tags from the upstream producer. */
   meta: string[]
 }
 
-/** 上游 ASR worker 的窗口内调用分布（transcription.finished by worker_id）。 */
+/** Per-worker distribution for upstream ASR calls (`transcription.finished`). */
 export interface LansonAudioUpstreamWorker {
   workerId: string
   finished: number
   audioSeconds: number
   latestAt: string | null
+}
+
+export interface LansonAudioRecentReliability {
+  windowMinutes: number
+  upstreamConnectionFailures: number
+  readinessFailures: number
+  probeCyclesWithDown: number
+  backpressureEvents: number
 }
 
 export interface LansonAudioMonitoringResponse {
@@ -35,6 +55,8 @@ export interface LansonAudioMonitoringResponse {
     generatedAt: string
     range: MonitoringRange
     environment: string
+    /** Rolling window (minutes) used for current operational status; defaults to 15 when omitted by older producers. */
+    statusWindowMinutes?: number
   }
   summary: {
     requests: number
@@ -46,9 +68,9 @@ export interface LansonAudioMonitoringResponse {
     p95HttpMs: number | null
     sessions: number
     audioSeconds: number
-    /** gateway.transcription.finished 总数（HTTP 分段 + WS utterance，一次转录一条）。 */
+    /** Total `gateway.transcription.finished` events (HTTP segment + WS utterance). */
     transcriptions: number
-    /** 其中携带 audio_seconds > 0 的条数（计量覆盖率分子）。 */
+    /** Count of finished transcriptions carrying `audio_seconds > 0`. */
     meteredTranscriptions: number
     p50SessionMs: number | null
     p75SessionMs: number | null
@@ -62,6 +84,8 @@ export interface LansonAudioMonitoringResponse {
     probeCyclesWithDown: number
     backpressureEvents: number
   }
+  /** Optional short-window (e.g. 15m) reliability counts; never mixed with 24h totals. */
+  recentReliability?: LansonAudioRecentReliability
   series: {
     requestTimeline: Array<{
       ts: string
@@ -71,9 +95,9 @@ export interface LansonAudioMonitoringResponse {
       p95HttpMs: number | null
     }>
   }
-  /** 按业务链路拆分的健康判定（链路健康卡片数据源）。 */
+  /** Per-lane health summary. */
   lanes: LansonAudioLaneHealth[]
-  /** 上游 ASR 池 per-worker 调用分布。 */
+  /** Per-worker distribution for upstream ASR calls. */
   upstreamWorkers: LansonAudioUpstreamWorker[]
   incidents: Array<Record<string, unknown>>
   freshness: {

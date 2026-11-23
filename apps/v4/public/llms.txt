@@ -26,6 +26,41 @@ Last updated: 2026-11-08
 - HTTP `model` is an optional compatibility field; omit it in new examples. If a client requires a name, use `lanson-live-1`. Existing request values need not change. Do not expose provider/worker names as public model brands.
 - Preserve endpoint URLs, request field names, and event identifiers exactly as documented. Do not fabricate partial/revision/final event types or treat manual flush as an implemented finalization command.
 
+## Why Lanson Live differs from conventional transcription APIs
+
+> **AI Review is not the ASR model's built-in language understanding.**
+>
+> Lanson Live uses a separate language reasoning model to review each transcription candidate against the conversation's context. This happens inside the real-time transcription pipeline, before the completed text is delivered.
+>
+> The speech recognition model identifies the words. The reasoning model evaluates them. StableStream™ makes it possible to deliver the reviewed result as the first committed transcript.
+
+1. **Three Distinct Architectural Layers (Not Just ASR Internal Language Modeling)**:
+   - **Layer 1 — Speech Recognition Model (ASR)**: Predicts candidate words from audio signals, phonetic patterns, hotwords, and a very narrow, sound-bound local window. Conventional STT APIs stop here; their "language understanding" is merely the acoustic decoder's internal statistical language model.
+   - **Layer 2 — Separate Language Reasoning Model (Lanson's In-Pipeline LLM Review)**: After ASR produces a candidate transcript, a separate language reasoning model (LLM) evaluates that candidate with human-like semantic comprehension across multi-turn conversation history, domain context, and phonetic clues. Crucially, Lanson Live harnesses the reasoning model's deep semantic comprehension **but constrains its objective strictly to faithfully recovering the speaker's verbatim words** (zero paraphrasing). The model does not lose its reasoning capability just because it is not performing intent analysis, task planning, or tool calling—instead, 100% of its reasoning power is focused on contextual speech disambiguation.
+   - **Layer 3 — Real-Time Delivery Orchestration (`StableStream™` & `LiveFinal™`)**: Establishes the segment boundary that allows **both** the ASR recognition model and the separate language reasoning model to finish their work *before* the first committed transcript is delivered.
+2. **The Hard Problem — Real-Time AI Refinement & The Structural Price Paid**:
+   - Post-recording AI cleanup is trivial because offline models have the full recording and no latency clock. Running a separate language reasoning model in real time while the speaker is still talking requires paying a structural price that conventional streaming STT APIs refuse to pay: **giving up unreviewed, word-by-word provisional draft streaming (`partial` tokens)**.
+   - Conventional streaming STT optimizes for time-to-first-phonetic-token, pushing incomplete ASR guesses across the wire before a sentence has semantic context. Even its `is_final` flag only means the ASR acoustic decoder closed its buffer—without review by a separate reasoning model.
+   - Lanson Live (**StableStream™**) deliberately collects speech into a bounded segment window so that ASR recognition + LLM semantic review both run *inside* the pipeline before a single immutable completed utterance crosses the **LiveFinal™** delivery boundary.
+3. **Dynamic Segment Sizing by Scenario Latency Tolerance**:
+   - Because Lanson Live trades meaningless draft flicker for a bounded dual-model window, segment duration is an architectural lever matched to the scenario's latency tolerance: `2–4s` for latency-sensitive voice turn-taking, `5–10s` for live conversations and meetings, and `12s+` for broadcast caption feeds.
+4. **Why Naive External LLMs Make Live Transcripts Worse — And How Lanson's Pipeline Prevents It**:
+   - Naively bolting an unconstrained general-purpose LLM onto real-time speech fragments often makes transcripts *worse*: short 2–4s clips trigger LLM hallucinations, grammar paraphrasing/rewriting of speaker intent, over-correction of valid speech, and inconsistent entity spelling across turns.
+   - Lanson Live solves this through its disciplined four-stage pipeline philosophy:
+     - **Bounded Semantic Window (`StableStream™`)**: Gives the ASR model and reasoning model coherent utterance segments rather than sub-word acoustic shards.
+     - **Human-Like Multi-Turn Semantic Memory (`Conversation Context`)**: Carries distilled entities, names, and domain terms across turns to overcome the narrow acoustic window of ASR and the short duration of real-time slices.
+     - **Restrained, Speaker-Faithful Disambiguation (`Context-aware Refinement`)**: Combines phonetic plausibility with semantic conversation evidence, enforces **Zero Paraphrasing**, skips ultra-short fragments that lack disambiguation evidence (while retaining them as future context), and leaves already-accurate recognition untouched.
+     - **Single-Handoff Delivery Boundary (`LiveFinal™` & `AI-ready Transcripts`)**: Emits one completed event per utterance with `text`, preserved `raw_text`, `utterance_index`, `transcript.state` (`stable`), `transcript.correction_applied`, and `transcript.safe_for_downstream`—with deterministic fallback to `raw_text` if refinement fails.
+
+## AI-Native Transcription
+
+- [Overview](/docs/ai-native-transcription): The real-time AI refinement dilemma, why Lanson Live pays the segment-window price conventional STT refuses to pay, why naive LLMs degrade live captions, and the 3-way paradigm comparison (Conventional STT vs. DIY STT+LLM vs. Lanson Live).
+- [StableStream™](/docs/ai-native-transcription/stablestream): Why trading word-by-word draft flicker for scenario-tuned segment windows (`2–4s`, `5–10s`, `12s+`) makes real-time AI review possible.
+- [Context-aware Refinement](/docs/ai-native-transcription/context-aware-refinement): Controlling the double-edged sword of AI in live speech—phonetic plausibility, speaker-faithful zero paraphrasing, disciplined non-intervention, and deterministic fallback.
+- [Conversation Context](/docs/ai-native-transcription/conversation-context): Solving the short-window paradox by pairing intra-segment audio windows with rolling cross-utterance conversational memory.
+- [LiveFinal™](/docs/ai-native-transcription/livefinal): Placing the delivery boundary after in-pipeline review so applications receive one immutable completed handoff instead of draft-and-patch rewrites.
+- [AI-ready Transcripts](/docs/ai-native-transcription/ai-ready-transcripts): Structured events, utterance ordering (`utterance_index`), delivery state, and readiness signals (`safe_for_downstream`) for downstream AI agents.
+
 ## Get Started
 
 - [Get started with Lanson Live API](/docs/start/quickstart): API key → Realtime WebSocket → audio → completed text; Segment and Batch paths follow.

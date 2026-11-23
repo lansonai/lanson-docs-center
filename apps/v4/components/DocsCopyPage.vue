@@ -144,7 +144,7 @@ const { copy, copied } = useClipboard()
 
 <template>
   <Popover>
-    <div class="group/buttons relative flex rounded-lg bg-secondary *:[[data-slot=button]]:focus-visible:relative *:[[data-slot=button]]:focus-visible:z-10">
+    <div class="group/buttons relative flex rounded-lg border border-border/80 bg-secondary/70 shadow-2xs *:[[data-slot=button]]:focus-visible:relative *:[[data-slot=button]]:focus-visible:z-10">
       <PopoverAnchor />
       <Button
         variant="secondary"

@@ -8,7 +8,6 @@ import {
   IconSparkles,
 } from '@tabler/icons-vue'
 import { useClipboard } from '@vueuse/core'
-import { Button } from '@/registry/new-york-v4/ui/button'
 
 const docsBase = 'https://docs.lansonai.com'
 
@@ -36,62 +35,76 @@ const claudeUrl = `https://claude.ai/new?q=${encodeURIComponent(agentPrompt)}`
 </script>
 
 <template>
-  <section class="agent-entry relative mx-auto mt-7 w-full max-w-3xl overflow-hidden rounded-2xl border text-left">
-    <div class="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.09] via-transparent to-transparent" />
-    <div class="relative grid gap-5 p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-6">
-      <div class="min-w-0">
-        <h2 class="text-lg font-semibold tracking-tight sm:text-xl">
+  <section class="glass-card relative overflow-hidden rounded-2xl p-6 sm:p-8 text-left">
+    <div class="pointer-events-none absolute -top-24 -right-24 size-64 rounded-full bg-emerald-500/10 blur-3xl" />
+
+    <div class="relative z-10 flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
+      <div class="max-w-xl space-y-2">
+        <div class="flex items-center gap-2">
+          <span class="font-mono text-xs uppercase tracking-wider text-emerald-500 dark:text-emerald-400">
+            AI-Native Workflow
+          </span>
+        </div>
+        <h2 class="text-2xl font-semibold tracking-tight text-foreground">
           Get started with AI
         </h2>
-        <p class="mt-1.5 max-w-lg text-sm leading-relaxed text-muted-foreground">
+        <p class="text-sm leading-relaxed text-muted-foreground">
           Understand the Lanson Live API and build your integration with help from your AI assistant.
         </p>
       </div>
 
-      <div class="flex flex-col gap-2 sm:items-end">
-        <Button size="sm" class="h-9 w-full sm:w-auto" @click="copyAgentIndex">
-          <IconCheck v-if="copied" /> <IconCopy v-else />
-          {{ copied ? 'Copied' : 'Copy for AI' }}
-        </Button>
-        <div class="grid grid-cols-2 gap-2">
-          <Button as-child size="sm" variant="outline" class="h-9">
-            <a :href="chatgptUrl" target="_blank" rel="noopener noreferrer">
-              <IconBrandOpenai /> Ask ChatGPT
-            </a>
-          </Button>
-          <Button as-child size="sm" variant="outline" class="h-9">
-            <a :href="claudeUrl" target="_blank" rel="noopener noreferrer">
-              <IconSparkles /> Ask Claude
-            </a>
-          </Button>
-        </div>
+      <div class="flex flex-wrap items-center gap-2.5">
+        <button
+          type="button"
+          class="btn-primary-emerald inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold sm:text-sm"
+          @click="copyAgentIndex"
+        >
+          <IconCheck v-if="copied" class="size-4" />
+          <IconCopy v-else class="size-4" />
+          <span>{{ copied ? 'Copied to clipboard' : 'Copy for AI' }}</span>
+        </button>
+
+        <a
+          :href="chatgptUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-2 rounded-xl border border-border bg-foreground/[0.03] px-4 py-2 text-xs font-medium text-foreground transition-all hover:border-emerald-500/30 hover:bg-foreground/[0.06] sm:text-sm"
+        >
+          <IconBrandOpenai class="size-4 text-muted-foreground" />
+          <span>Ask ChatGPT</span>
+        </a>
+
+        <a
+          :href="claudeUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-2 rounded-xl border border-border bg-foreground/[0.03] px-4 py-2 text-xs font-medium text-foreground transition-all hover:border-emerald-500/30 hover:bg-foreground/[0.06] sm:text-sm"
+        >
+          <IconSparkles class="size-4 text-amber-500/90 dark:text-amber-400/90" />
+          <span>Ask Claude</span>
+        </a>
       </div>
     </div>
 
-    <div class="relative flex flex-wrap items-center gap-x-5 gap-y-2 border-t bg-background/35 px-5 py-3 text-xs text-muted-foreground sm:px-6">
+    <div class="relative z-10 mt-6 flex flex-wrap items-center gap-6 border-t border-border pt-5 text-xs text-muted-foreground">
       <a
         href="/llms.txt"
         target="_blank"
         rel="noopener noreferrer"
-        class="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+        class="inline-flex items-center gap-2 transition-colors hover:text-emerald-500 dark:hover:text-emerald-400"
       >
-        <IconFileText class="size-3.5" /> AI documentation
+        <IconFileText class="size-3.5 opacity-75" />
+        <span>AI documentation <span class="font-mono text-[11px] opacity-75">(llms.txt)</span></span>
       </a>
       <a
         href="https://audio.lansonai.com/openapi.json"
         target="_blank"
         rel="noopener noreferrer"
-        class="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+        class="inline-flex items-center gap-2 transition-colors hover:text-emerald-500 dark:hover:text-emerald-400"
       >
-        OpenAPI spec <IconExternalLink class="size-3.5" />
+        <span>OpenAPI spec</span>
+        <IconExternalLink class="size-3 opacity-75" />
       </a>
     </div>
   </section>
 </template>
-
-<style scoped>
-.agent-entry {
-  background: color-mix(in oklab, var(--card) 92%, transparent);
-  box-shadow: 0 18px 50px -34px color-mix(in oklab, var(--primary) 35%, transparent);
-}
-</style>

@@ -89,19 +89,21 @@ onMounted(() => {
     </DropdownMenuContent>
   </DropdownMenu>
 
-  <div v-else :class="cn('flex flex-col gap-2 p-4 pt-0 text-sm', props.class)">
-    <p v-if="tocLinks.length" class="h-6 bg-background text-xs font-medium text-muted-foreground">
+  <div v-else :class="cn('flex flex-col gap-1.5 text-sm', props.class)">
+    <p v-if="tocLinks.length" class="pb-1 text-[length:var(--doc-text-label)] font-semibold uppercase tracking-wider text-foreground/65">
       On This Page
     </p>
-    <a
-      v-for="item in tocLinks"
-      :key="item.id"
-      :href="`${path}#${item.id}`"
-      class="text-[0.8rem] text-muted-foreground no-underline transition-colors hover:text-foreground data-[active=true]:font-medium data-[active=true]:text-foreground data-[depth=3]:pl-4 data-[depth=4]:pl-6"
-      :data-active="item.id === activeHeading"
-      :data-depth="item.depth"
-    >
-      {{ item.text }}
-    </a>
+    <div class="flex flex-col gap-1.5 border-l border-border/60 pl-3">
+      <a
+        v-for="item in tocLinks"
+        :key="item.id"
+        :href="`${path}#${item.id}`"
+        class="-ml-[13px] border-l-2 border-transparent pl-3 text-[length:var(--doc-text-toc)] leading-snug text-muted-foreground no-underline transition-colors hover:text-foreground data-[active=true]:border-primary data-[active=true]:font-medium data-[active=true]:text-primary data-[depth=3]:pl-5 data-[depth=4]:pl-7"
+        :data-active="item.id === activeHeading"
+        :data-depth="item.depth"
+      >
+        {{ item.text }}
+      </a>
+    </div>
   </div>
 </template>

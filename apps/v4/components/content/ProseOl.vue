@@ -2,7 +2,7 @@
 </script>
 
 <template>
-  <ol class="my-6 ml-6 list-decimal">
+  <ol class="my-[var(--doc-space-block)] ml-6 list-decimal">
     <slot />
   </ol>
 </template>

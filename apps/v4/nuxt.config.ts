@@ -55,8 +55,8 @@ export default defineNuxtConfig({
   // CSS variables and Tailwind `dark:` variant.
   colorMode: {
     classSuffix: '',
-    preference: 'system',
-    fallback: 'light',
+    preference: 'dark',
+    fallback: 'dark',
   },
   components: [
     { path: '~/components', ignore: ['_internal/*', '_internal/**/*', 'examples/*', 'examples/**/*'] },
@@ -205,8 +205,10 @@ export default defineNuxtConfig({
     head: {
       link: [
         { rel: 'manifest', href: '/site.webmanifest' },
-        { rel: 'shortcut icon', href: '/favicon-16x16.png' },
-        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
+        { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32x32.png' },
+        { rel: 'icon', type: 'image/png', sizes: '16x16', href: '/favicon-16x16.png' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
         // Geist/Geist Mono are emitted eagerly by @nuxt/fonts (see `fonts.families`).
         // Other fonts are resolved on demand via useFontLoader() + unifont, which
         // still hits Bunny at runtime — hence the preconnect.

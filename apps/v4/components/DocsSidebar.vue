@@ -23,15 +23,15 @@ const { path } = toRefs(useRoute())
 
 <template>
   <Sidebar
-    class="sticky top-[calc(var(--header-height)+0.6rem)] z-30 hidden h-[calc(100svh-10rem)] overflow-hidden overscroll-none bg-transparent [--sidebar-menu-width:--spacing(56)] lg:flex"
+    class="sticky top-[calc(var(--header-height)+1px)] z-30 hidden h-[calc(100svh-var(--header-height)-1px)] overflow-hidden overscroll-none border-r border-border/50 bg-transparent [--sidebar-menu-width:--spacing(56)] lg:flex"
     collapsible="none"
   >
-    <SidebarContent class="w-(--sidebar-menu-width) scroll-fade scrollbar-none overflow-x-hidden pl-2.5 pt-6">
+    <SidebarContent class="w-(--sidebar-menu-width) scroll-fade scrollbar-none overflow-x-hidden pr-3 pt-5">
       <SidebarGroup
         v-for="item in tree.children?.filter(section => !EXCLUDED_SECTIONS.includes(section.title.toLocaleLowerCase()))"
         :key="item.title"
       >
-        <SidebarGroupLabel class="font-medium text-muted-foreground">
+        <SidebarGroupLabel class="text-[length:var(--doc-text-label)] font-semibold uppercase tracking-wider text-foreground/65">
           {{ item.title }}
         </SidebarGroupLabel>
         <SidebarGroupContent>
@@ -44,7 +44,7 @@ const { path } = toRefs(useRoute())
                 <SidebarMenuButton
                   as-child
                   :is-active="childItem?.path === path"
-                  class="relative min-h-[30px] h-auto w-fit overflow-visible border border-transparent py-1 text-[0.8rem] leading-snug font-medium after:absolute after:inset-x-0 after:-inset-y-0.5 after:z-0 after:rounded-md data-[active=true]:border-accent data-[active=true]:bg-accent 3xl:fixed:w-full 3xl:fixed:max-w-48"
+                  class="relative min-h-[30px] h-auto w-full overflow-visible rounded-md border border-transparent px-2.5 py-1 text-[length:var(--doc-text-sidebar)] leading-snug text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground data-[active=true]:border-primary/25 data-[active=true]:bg-primary/10 data-[active=true]:font-medium data-[active=true]:text-primary"
                 >
                   <NuxtLink :to="childItem?.path">
                     <span class="absolute inset-0 flex w-(--sidebar-width) bg-transparent" />

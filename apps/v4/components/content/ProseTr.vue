@@ -2,7 +2,7 @@
 </script>
 
 <template>
-  <tr class="last:border-b-none m-0 border-b">
+  <tr class="m-0 border-b border-border/60 transition-colors hover:bg-muted/25">
     <slot />
   </tr>
 </template>

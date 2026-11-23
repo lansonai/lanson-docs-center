@@ -19,7 +19,7 @@ export const siteConfig = {
       label: 'Home',
     },
     {
-      href: '/docs/start/quickstart',
+      href: '/docs/ai-native-transcription',
       label: 'Docs',
     },
     {

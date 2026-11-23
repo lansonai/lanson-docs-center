@@ -17,6 +17,7 @@ export interface NavigationItem {
 }
 
 const SECTION_TITLES: Record<string, string> = {
+  '/docs/ai-native-transcription': 'AI-Native Transcription',
   '/docs/start': 'Start',
   '/docs/realtime': 'Realtime',
   '/docs/recorded': 'Recorded',

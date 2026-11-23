@@ -21,6 +21,20 @@ describe('documentation structure', () => {
     }
   })
 
+  it('places the six AI-Native Transcription pages in their own group before Start', () => {
+    const aiNativeTitles = markdownFiles(resolve(root, 'content/docs/0.ai-native-transcription'))
+      .sort()
+      .map(file => readFileSync(file, 'utf8').match(/^title: (.+)$/m)?.[1])
+    expect(aiNativeTitles).toEqual([
+      'Overview',
+      'StableStream™',
+      'Context-aware Refinement',
+      'Conversation Context',
+      'LiveFinal™',
+      'AI-ready Transcripts',
+    ])
+  })
+
   it('keeps only the four requested Start pages', () => {
     const titles = markdownFiles(resolve(root, 'content/docs/1.start'))
       .sort()
