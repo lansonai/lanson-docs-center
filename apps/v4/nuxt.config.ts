@@ -31,7 +31,13 @@ export default defineNuxtConfig({
   robots: {
     allow: '/',
     // API endpoints are not pages; keep crawlers out of them.
-    disallow: ['/api/'],
+    disallow: [
+      '/api/',
+      // Unlisted engineering archive under docs.lansonai.com/z.archive/**.
+      // Pages are reachable by direct URL but never linked from the sidebar,
+      // sitemap, or any other page; explicitly disallow crawlers as a backstop.
+      '/docs/z.archive/',
+    ],
     sitemap: '/sitemap.xml',
   },
   sitemap: {
@@ -167,6 +173,14 @@ export default defineNuxtConfig({
     '/docs/**': { prerender: true },
     // Redirect legacy /status/lanson-audio path to /status
     '/status/lanson-audio': { redirect: { to: '/status', statusCode: 302 } },
+    // Concept duplicates: explanation ownership sits with the AI-Native group.
+    // Keep old URLs working, but land on the AI-Native counterpart.
+    '/docs/concepts/stable-vs-partial-text': { redirect: { to: '/docs/ai-native-transcription/stablestream', statusCode: 301 } },
+    '/docs/concepts/stablestream': { redirect: { to: '/docs/ai-native-transcription/stablestream', statusCode: 301 } },
+    '/docs/concepts/context-aware-processing': { redirect: { to: '/docs/ai-native-transcription/context-aware-refinement', statusCode: 301 } },
+    '/docs/concepts/live-translation': { redirect: { to: '/docs/realtime/realtime-translation', statusCode: 301 } },
+    '/docs/concepts/trinity-engine': { redirect: { to: '/docs/concepts', statusCode: 301 } },
+    '/docs/concepts/livefinal': { redirect: { to: '/docs/ai-native-transcription/livefinal', statusCode: 301 } },
     // JSON API - edge-cached at CF, survives across Worker invocations
     '/api/**': {
       headers: {

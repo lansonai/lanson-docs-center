@@ -14,6 +14,15 @@ export default defineSitemapEventHandler(async (event) => {
     .all()
 
   return pages
-    .filter(page => page.path && !page.path.startsWith('/raw'))
+    .filter((page) => {
+      if (!page.path || page.path.startsWith('/raw'))
+        return false
+      // Unlisted engineering archive: pages under `z.archive/` are reachable
+      // at a stable URL but must not surface in the sitemap (and are also
+      // covered by `robots.txt`). See content/docs/z.archive/README.
+      if (page.path.startsWith('/docs/z.archive/'))
+        return false
+      return true
+    })
     .map(page => ({ loc: page.path }))
 })
