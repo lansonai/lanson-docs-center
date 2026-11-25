@@ -2,10 +2,10 @@
   <div class="not-prose my-6 grid gap-4 sm:grid-cols-3">
     <div class="glass-card-static space-y-2 rounded-2xl p-5">
       <div class="font-mono text-xs uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-        AI-Aware by Default
+        Live Reasoning Layer
       </div>
       <p class="text-sm leading-relaxed text-muted-foreground">
-        Context-aware refinement runs automatically inside the live pipeline—no separate post-processing API required.
+        A separate reasoning model reviews acoustic candidates against full conversation context inside the live pipeline—no post-processing API required.
       </p>
     </div>
     <div class="glass-card-static space-y-2 rounded-2xl p-5">

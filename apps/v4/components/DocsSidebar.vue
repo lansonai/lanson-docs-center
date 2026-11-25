@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ContentNavigationItem } from '@nuxt/content'
+import { HIDDEN_DOC_PAGES, HIDDEN_DOC_SECTIONS } from '@/lib/docs-sidebar'
 import {
   Sidebar,
   SidebarContent,
@@ -15,8 +16,8 @@ defineProps<{
   tree: ContentNavigationItem
 }>()
 
-const EXCLUDED_SECTIONS: string[] = []
-const EXCLUDED_PAGES: string[] = []
+const EXCLUDED_SECTIONS: string[] = HIDDEN_DOC_SECTIONS
+const EXCLUDED_PAGES: string[] = HIDDEN_DOC_PAGES
 
 const { path } = toRefs(useRoute())
 </script>

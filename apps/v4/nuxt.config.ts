@@ -5,6 +5,10 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-05-05',
   devtools: { enabled: true },
   srcDir: '.',
+  // 防御性：绝不 watch 运行时日志目录（与 lanson-admin-nuxt 保持一致），
+  // 避免将来日志若落到 app 目录内时触发 HMR 重建循环。当前 lanson-dev 把
+  // docs-center 日志写在 monorepo 根 logs/，不在本 app watch 范围内。
+  ignore: ['**/logs/**'],
   devServer: {
     allowedHosts: ['.trycloudflare.com', '.deth.us', '.lanson.dev'],
   },
@@ -111,7 +115,10 @@ export default defineNuxtConfig({
       // Prevent dev module caching across dev-server restarts: Nuxt marks
       // /_nuxt/** immutable, so a restart changes ?v= hashes while browsers
       // keep serving stale modules -> silent hydration failure.
-      headers: { 'Cache-Control': 'no-cache, must-revalidate' },
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Vary': 'Accept, Origin',
+      },
     },
     plugins: [
       tailwindcss() as any,

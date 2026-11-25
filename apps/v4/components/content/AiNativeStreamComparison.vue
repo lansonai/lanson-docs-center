@@ -7,7 +7,7 @@ const draftLog = ref('4 interim rewrites exposed to UI / downstream agent')
 
 const stableBadge = ref('LiveFinal™ Ready')
 const stableStage = ref<'initial' | 'reviewing' | 'delivered'>('initial')
-const stableLog = ref('1 completed, AI-reviewed utterance delivered')
+const stableLog = ref('1 completed, reasoning-reviewed utterance delivered')
 
 let simTimers: ReturnType<typeof setTimeout>[] = []
 
@@ -25,9 +25,9 @@ function runStreamSimulation() {
   draftStage.value = 'step1'
   draftLog.value = 'event #1 (partial) emitted'
 
-  stableBadge.value = 'Reviewing Segment...'
+  stableBadge.value = 'Reasoning Review...'
   stableStage.value = 'reviewing'
-  stableLog.value = 'Holding candidate behind delivery boundary'
+  stableLog.value = 'Evaluating candidate against conversation context'
 
   simTimers.push(setTimeout(() => {
     draftStage.value = 'step2'
@@ -44,9 +44,9 @@ function runStreamSimulation() {
     draftLog.value = 'event #4 (final) — requires post-patch if corrected'
     draftBadge.value = 'Unstable Revisions'
 
-    stableBadge.value = 'LiveFinal™ Delivered'
+    stableBadge.value = 'LiveFinal™ Ready'
     stableStage.value = 'delivered'
-    stableLog.value = 'event #1 (completed) — reviewed before handoff'
+    stableLog.value = 'event #1 (completed) — reasoning-reviewed before handoff'
   }, 2200))
 }
 
@@ -65,7 +65,7 @@ onBeforeUnmount(() => {
           <span class="size-2.5 rounded-full bg-foreground/15" />
           <span class="size-2.5 rounded-full bg-foreground/15" />
         </div>
-        <span class="ml-1 font-mono text-xs text-muted-foreground">live-delivery-comparison.stream</span>
+        <span class="ml-1 font-mono text-xs text-muted-foreground">Live delivery simulation</span>
       </div>
 
       <button
@@ -128,7 +128,7 @@ onBeforeUnmount(() => {
 
         <div class="flex min-h-[116px] flex-col justify-between rounded-xl border border-emerald-500/25 bg-[var(--panel-inset)] p-4">
           <p v-if="stableStage === 'reviewing'" class="text-[14.5px] italic leading-relaxed text-muted-foreground">
-            Collecting segment &amp; applying context-aware review...
+            Collecting acoustic candidate &amp; running live reasoning review...
           </p>
           <p v-else class="text-[14.5px] leading-relaxed text-foreground">
             "We need to fix the <span class="rounded bg-emerald-500/15 px-1.5 py-0.5 font-mono text-xs font-semibold text-emerald-600 dark:text-emerald-400">Lanson Live</span> API."
@@ -140,7 +140,7 @@ onBeforeUnmount(() => {
         </div>
 
         <p class="text-xs leading-relaxed text-muted-foreground">
-          Holds the candidate segment briefly for context-aware review, delivering one clean, final transcript event.
+          Holds the acoustic candidate briefly for full-context reasoning review, delivering one clean, final transcript event.
         </p>
       </div>
     </div>

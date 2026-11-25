@@ -1,19 +1,19 @@
 <script setup lang="ts">
 const startBuildingLinks = [
   {
-    title: 'Get started with Lanson Live API',
-    description: 'Create an API key, choose your audio workflow, and confirm your first transcription result.',
-    href: '/docs/start/quickstart',
-  },
-  {
     title: 'Realtime Quickstart',
     description: 'Stream live speech over WebSocket and receive completed utterances.',
     href: '/docs/realtime/quickstart',
   },
   {
     title: 'Context-aware Refinement',
-    description: 'Understand how conversational context improves recognition while preserving speaker intent.',
+    description: 'What context-aware refinement is — conversational context improving recognition while preserving speaker intent.',
     href: '/docs/ai-native-transcription/context-aware-refinement',
+  },
+  {
+    title: 'StableStream™ and LiveFinal™',
+    description: 'What StableStream™ and LiveFinal™ are — stable segments and utterance finalization boundaries.',
+    href: '/docs/ai-native-transcription/stablestream',
   },
   {
     title: 'Server Events',
@@ -37,7 +37,7 @@ const startBuildingLinks = [
           AI-native by default
         </div>
         <p class="text-sm leading-relaxed text-muted-foreground">
-          Context-aware refinement is built directly into Lanson Live transcription. Developers can start with a standard transcription request and benefit from AI-assisted review without integrating a separate correction pipeline. The result remains the speaker's words—not an AI-generated paraphrase.
+          Live reasoning review is built directly into Lanson Live transcription. Developers can start with a standard transcription request and get full-context verification without wiring up a separate post-processing pipeline. The result remains the speaker's words—not an AI-generated paraphrase.
         </p>
       </div>
     </div>

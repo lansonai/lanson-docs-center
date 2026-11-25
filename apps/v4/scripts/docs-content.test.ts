@@ -26,13 +26,24 @@ describe('documentation structure', () => {
       .sort()
       .map(file => readFileSync(file, 'utf8').match(/^title: (.+)$/m)?.[1])
     expect(aiNativeTitles).toEqual([
-      'Overview',
+      'What is AI-native Transcription',
       'StableStream™',
       'Context-aware Refinement',
       'Conversation Context',
       'LiveFinal™',
       'AI-ready Transcripts',
     ])
+  })
+
+  it('keeps no "overview" wording anywhere in docs titles, headings, or AI docs', () => {
+    const sources = [...markdownFiles(resolve(root, 'content/docs')), resolve(root, 'public/llms.txt')]
+    for (const file of sources) {
+      const body = readFileSync(file, 'utf8')
+      const title = body.match(/^title: (.+)$/m)?.[1] ?? ''
+      expect(title.toLowerCase(), `${file} title`).not.toContain('overview')
+      const prose = body.replace(/^---\n[\s\S]*?\n---\n/, '').replace(/```[^\n]*\n[\s\S]*?```/g, '')
+      expect(prose, `${file} headings`).not.toMatch(/^## .*overview/im)
+    }
   })
 
   it('keeps only the four requested Start pages', () => {
@@ -56,6 +67,23 @@ describe('documentation structure', () => {
     expect(page).toContain('::api-pricing\n::')
     expect(page.indexOf('::api-pricing\n::')).toBeLessThan(page.indexOf('## Credits, balance, and top-ups'))
     expect(page).not.toContain('<ApiPricing />')
+  })
+
+  it('keeps References and duplicate Concepts out of the Docs sidebar, without breaking routes', () => {
+    const hidden = readFileSync(resolve(root, 'lib/docs-sidebar.ts'), 'utf8')
+    expect(hidden).toContain(`'/docs/concepts/stablestream'`)
+    expect(hidden).toContain(`'/docs/concepts/livefinal'`)
+    expect(hidden).toContain(`'/docs/concepts/context-aware-processing'`)
+    const sidebar = readFileSync(resolve(root, 'components/DocsSidebar.vue'), 'utf8')
+    expect(sidebar).toContain('HIDDEN_DOC_SECTIONS')
+    expect(sidebar).toContain('HIDDEN_DOC_PAGES')
+    const mobile = readFileSync(resolve(root, 'components/MobileNav.vue'), 'utf8')
+    expect(mobile).toContain('HIDDEN_DOC_SECTIONS')
+    expect(mobile).toContain('HIDDEN_DOC_PAGES')
+    const config = readFileSync(resolve(root, 'nuxt.config.ts'), 'utf8')
+    expect(config).toContain(`'/docs/concepts/stablestream': { redirect: { to: '/docs/ai-native-transcription/stablestream', statusCode: 301 } }`)
+    expect(config).toContain(`'/docs/concepts/livefinal': { redirect: { to: '/docs/ai-native-transcription/livefinal', statusCode: 301 } }`)
+    expect(config).toContain(`'/docs/concepts/context-aware-processing': { redirect: { to: '/docs/ai-native-transcription/context-aware-refinement', statusCode: 301 } }`)
   })
 
   it('keeps Markdown and AI documentation links on existing routes', () => {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ContentNavigationItem } from '@nuxt/content'
 import type { HTMLAttributes } from 'vue'
+import { HIDDEN_DOC_PAGES, HIDDEN_DOC_SECTIONS } from '@/lib/docs-sidebar'
 import { cn } from '@/lib/utils'
 import { Button } from '@/registry/new-york-v4/ui/button'
 import {
@@ -91,14 +92,14 @@ function handleNavigate(path: string) {
         </div>
 
         <div class="flex flex-col gap-6 border-t border-border/60 pt-6">
-          <template v-for="(group, index) in tree[0]?.children" :key="index">
+          <template v-for="(group, index) in tree[0]?.children?.filter(section => !HIDDEN_DOC_SECTIONS.includes(section.title.toLocaleLowerCase()))" :key="index">
             <div class="flex flex-col gap-3">
               <div class="text-muted-foreground text-xs font-medium tracking-wider uppercase">
                 {{ group.title }}
               </div>
               <div class="flex flex-col gap-2.5">
                 <NuxtLink
-                  v-for="item in group.children"
+                  v-for="item in group.children?.filter(child => !HIDDEN_DOC_PAGES.includes(child.path))"
                   :key="item.path"
                   class="flex items-center gap-2 text-base font-medium text-foreground/90 hover:text-foreground"
                   :to="item.path"
